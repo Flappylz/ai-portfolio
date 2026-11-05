@@ -39,7 +39,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pages_dir="$(mktemp -d)"
-          git -c "http.extraheader=AUTHORIZATION: bearer ${GH_TOKEN}" clone --depth 1 --branch gh-pages "https://github.com/${GITHUB_REPOSITORY}.git" "${pages_dir}"
+          git clone --depth 1 --branch gh-pages "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "${pages_dir}"
           rsync -a --delete --exclude .git dist/ "${pages_dir}/"
           touch "${pages_dir}/.nojekyll"
           cd "${pages_dir}"
