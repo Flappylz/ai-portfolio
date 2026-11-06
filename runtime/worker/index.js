@@ -161,7 +161,7 @@ async function openAIRespond(request, env) {
     const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: { authorization: `Bearer ${env.OPENAI_API_KEY}`, accept: 'application/json', 'content-type': 'application/json' },
-      body: JSON.stringify({ model, input: String(body?.input || '').slice(0, 6000), max_output_tokens: 16 }),
+      body: JSON.stringify({ model, input: String(body?.input || '').slice(0, 6000), max_output_tokens: 64 }),
       signal: controller.signal
     });
     const payload = await response.json().catch(() => null);
