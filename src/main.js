@@ -1,11 +1,11 @@
 import './styles.css';
-import { agentModes, apps, capabilities, projects } from './data/projects.js';
+import { agentModes, apps, capabilities, projects, voiceScenarios } from './data/projects.js';
 
 const app = document.querySelector('#app');
 const githubUrl = 'https://github.com/Flappylz';
 const email = '760871196@qq.com';
 
-const state = { modeId: 'discovery', status: 'draft', score: 0, input: '', response: '', deliveryChecks: [], deliverySummary: '', events: [
+const state = { modeId: 'discovery', status: 'draft', score: 0, input: '', response: '', deliveryChecks: [], deliverySummary: '', voiceScenario: 'carrier', voiceInput: '', voiceStatus: 'ready', voiceStep: 0, voiceMessages: [], voiceLogs: [], voiceRound: 0, voiceLanguage: 'zh', voiceVoice: 'JBFqnCBsd6RMkjVDRZzb', voiceModel: 'eleven_flash_v2_5', voiceStability: 0.5, voiceSimilarity: 0.75, voiceStyle: 0.2, voiceSpeed: 1, voiceApiKey: '', voiceApiState: 'browser fallback', voiceLatency: { asr: 320, intent: 42, kb: 28, tts: 480 }, events: [
   { time: '09:41:03', label: 'workspace initialized', tone: 'quiet' },
   { time: '09:41:11', label: 'agent schema loaded', tone: 'cyan' }
 ] };
@@ -45,17 +45,33 @@ function appCard(app) {
   return '<article class="app-card app-' + app.accent + '" data-app-route="' + esc(app.route || app.url) + '" tabindex="0"><div class="app-card-art"><span>' + app.number + '</span><b>' + app.id.toUpperCase() + '</b><i></i><i></i><i></i></div><div class="app-card-body"><div class="app-card-head"><span class="app-status">' + app.label + '</span><span class="app-type">APP</span></div><h3>' + app.title + '</h3><p>' + app.description + '</p><div class="app-tags">' + app.tags.map((tag) => '<span>' + tag + '</span>').join('') + '</div>' + action + '</div></article>';
 }
 function appLauncher() {
-  return '<section class="app-launcher section-pad" id="apps"><div class="launcher-head"><div><span class="section-label">APPLICATION DESK</span><h2>直接打开产品 Demo。</h2></div><p>四个入口，分别展示 Agent、实时语音、智能硬件和 AI 项目交付。作品说明放在后面，先让你看到能运行的东西。</p></div><div class="app-grid">' + apps.map(appCard).join('') + '</div></section>';
+  return '<section class="app-launcher section-pad" id="apps"><div class="launcher-head"><div><span class="section-label">APPLICATION DESK</span><h2>直接打开产品 Demo。</h2></div><p>六个入口，分别展示 Agent、三类语音场景、智能硬件和 AI 项目交付。作品说明放在后面，先让你看到能运行的东西。</p></div><div class="app-grid">' + apps.map(appCard).join('') + '</div></section>';
 }
 function homeView() {
-  return shell('<section class="desk-hero section-pad"><div><span class="section-label">冯良泽AI / APPLICATION DESK</span><h1>先看能运行的<br /><em>产品 Demo。</em></h1><p>这里放的是可以直接打开和操作的应用入口：Agent、实时语音、智能硬件、项目交付。</p><div class="desk-actions"><a class="button primary" href="#/apps">打开应用工作台 <span>↗</span></a><a class="button secondary" href="#/projects">看产品拆解 <span>↗</span></a></div></div><div class="desk-meta"><span><i></i>4 个应用入口</span><span>2 个公开 Demo</span><span>2 个本地交互应用</span></div></section>' + appLauncher() + '<section class="section-pad demo-note"><span class="section-label">HOW TO READ</span><p>每个入口都对应一个产品能力：先打开、再操作、最后看拆解。公开 Demo 会在新标签页打开；本地应用直接在站内运行。</p></section>');
+  return shell('<section class="desk-hero section-pad"><div><span class="section-label">冯良泽AI / APPLICATION DESK</span><h1>先看能运行的<br /><em>产品 Demo。</em></h1><p>这里放的是可以直接打开和操作的应用入口：Agent、运营商、航空、足球、智能硬件、项目交付。</p><div class="desk-actions"><a class="button primary" href="#/apps">打开应用工作台 <span>↗</span></a><a class="button secondary" href="#/projects">看产品拆解 <span>↗</span></a></div></div><div class="desk-meta"><span><i></i>6 个应用入口</span><span>3 个语音场景</span><span>全链路可观测</span></div></section>' + appLauncher() + '<section class="section-pad demo-note"><span class="section-label">HOW TO READ</span><p>每个入口都对应一个产品能力：先打开、再操作、最后看拆解。语音场景支持文本和浏览器麦克风；ElevenLabs API 在高级设置中按会话配置。</p></section>');
 }
 function projectsView() {
   return shell('<section class="page-intro section-pad"><span class="section-label">ORIGINAL WORK / 0 → 1</span><h1>不把 Demo 当作品。<br /><em>把判断做成产品。</em></h1><p>下面四个案例都从问题、范围和交付边界出发，重点展示我如何把 AI 能力组织成可体验、可评测的产品系统。</p></section><section class="section-pad project-list">' + projects.map((project, index) => projectCard(project, index === 0)).join('') + '</section><section class="section-pad proof-band"><div><span class="section-label">AI FLUENCY</span><h2>熟悉 AI，体现在边界和验证里。</h2></div><div class="proof-list"><span>模型能力边界</span><span>Agent 状态管理</span><span>实时语音链路</span><span>工具调用</span><span>评测与 Badcase</span><span>安全与交付</span></div></section>');
 }
 function appsView() {
-  return shell('<section class="page-intro section-pad app-page-intro"><span class="section-label">APPLICATION DESK / 4 LIVE ENTRIES</span><h1>应用入口在这里。</h1><p>先体验产品，再看产品拆解。公开 Demo 会在新标签页打开，本地应用直接在站内运行。</p></section>' + appLauncher());
+  return shell('<section class="page-intro section-pad app-page-intro"><span class="section-label">APPLICATION DESK / 6 LIVE ENTRIES</span><h1>应用入口在这里。</h1><p>先体验产品，再看产品拆解。语音场景支持文本和浏览器麦克风，参数和观测面板在高级设置中展开。</p></section>' + appLauncher());
 }
+function activeVoiceScenario() { return voiceScenarios.find((item) => item.id === state.voiceScenario) || voiceScenarios[0]; }
+function resetVoiceState(id) {
+  if (state.voiceScenario === id && (state.voiceMessages.length || state.voiceLogs.length)) return;
+  state.voiceScenario = id; state.voiceInput = ''; state.voiceStatus = 'ready'; state.voiceStep = 0; state.voiceMessages = []; state.voiceLogs = []; state.voiceRound = 0; state.voiceApiState = 'browser fallback';
+}
+function voiceScenarioView(id) {
+  resetVoiceState(id);
+  const scenario = activeVoiceScenario();
+  const messages = state.voiceMessages.length ? state.voiceMessages.map((item) => '<div class="voice-message ' + item.role + '"><span>' + (item.role === 'user' ? 'YOU' : 'AGENT') + '</span><p>' + esc(item.text) + '</p></div>').join('') : '<div class="voice-empty">点击麦克风，或输入一句话开始这个场景。</div>';
+  const logs = state.voiceLogs.slice(-6).reverse().map((item) => '<li><time>' + item.time + '</time><b class="event-dot ' + item.tone + '"></b><span>' + item.label + '</span></li>').join('');
+  const steps = scenario.workflow.map((step, index) => '<div class="voice-step ' + (state.voiceStep >= index + 1 ? 'active' : '') + '"><b>0' + (index + 1) + '</b><span>' + step + '</span></div>').join('');
+  const knowledge = scenario.knowledge.map((item) => '<li><div><b>' + item[0] + '</b><small>' + item[1] + '</small></div><em>' + item[2] + '</em></li>').join('');
+  const lastAssistant = [...state.voiceMessages].reverse().find((item) => item.role === 'assistant');
+  return shell('<section class="page-intro section-pad voice-page-intro"><span class="section-label">VOICE SCENARIO STUDIO / REALTIME APP</span><h1>' + scenario.title + '</h1><p>' + scenario.subtitle + '。选择语言和音色，打开高级参数，直接跑一轮可观测的语音流程。</p><div class="scenario-tabs">' + voiceScenarios.map((item) => '<a class="' + (item.id === scenario.id ? 'selected' : '') + '" href="#/apps/voice?scenario=' + item.id + '">' + item.title + '</a>').join('') + '</div></section><section class="section-pad voice-workbench"><div class="voice-main"><div class="voice-toolbar"><div><span class="mini-label">LIVE SESSION</span><h2>' + scenario.title + '</h2></div><div class="voice-state ' + state.voiceStatus + '"><i></i>' + state.voiceStatus.toUpperCase() + '</div></div><div class="voice-workflow">' + steps + '</div><div class="voice-transcript">' + messages + '</div><div class="voice-samples">' + scenario.examples.map((item) => '<button type="button" data-voice-sample="' + esc(item) + '">' + item + '</button>').join('') + '</div><div class="voice-composer"><textarea id="voice-input" rows="2" placeholder="' + esc(scenario.prompt) + '">' + esc(state.voiceInput) + '</textarea><div class="voice-actions"><button class="button secondary" type="button" data-voice-mic>◉ 开始语音</button><button class="button primary" type="button" data-voice-send>发送并运行 <span>↗</span></button></div></div><div class="voice-audio-row"><span>' + (lastAssistant ? '最近一次 Agent 回复可播放' : '生成语音后可在这里播放') + '</span><button class="text-link" type="button" data-voice-speak ' + (lastAssistant ? '' : 'disabled') + '>重新播放</button><audio id="voice-audio" controls></audio></div><details class="voice-settings"><summary>高级语音设置 <span>语言 / 音色 / 模型 / 参数 / API</span></summary><div class="settings-grid"><div class="setting-group"><h3>语言与音色</h3><label>Language<select data-voice-language><option value="zh" ' + (state.voiceLanguage === 'zh' ? 'selected' : '') + '>中文 / zh</option><option value="en" ' + (state.voiceLanguage === 'en' ? 'selected' : '') + '>English / en</option><option value="ar" ' + (state.voiceLanguage === 'ar' ? 'selected' : '') + '>العربية / ar</option></select></label><label>Voice<select data-voice-voice><option value="JBFqnCBsd6RMkjVDRZzb" ' + (state.voiceVoice === 'JBFqnCBsd6RMkjVDRZzb' ? 'selected' : '') + '>George · neutral</option><option value="21m00Tcm4TlvDq8ikWAM" ' + (state.voiceVoice === '21m00Tcm4TlvDq8ikWAM' ? 'selected' : '') + '>Rachel · clear</option></select></label></div><div class="setting-group"><h3>模型与输出</h3><label>Model<select data-voice-model><option value="eleven_flash_v2_5" ' + (state.voiceModel === 'eleven_flash_v2_5' ? 'selected' : '') + '>Flash v2.5 · low latency</option><option value="eleven_multilingual_v2" ' + (state.voiceModel === 'eleven_multilingual_v2' ? 'selected' : '') + '>Multilingual v2 · stable</option></select></label><label>Output<select data-voice-format><option>MP3 44.1kHz</option><option>PCM 16kHz</option></select></label></div><div class="setting-group setting-sliders"><h3>Voice controls</h3><label>Stability <output data-output="stability">' + state.voiceStability + '</output><input type="range" min="0" max="1" step="0.05" value="' + state.voiceStability + '" data-voice-stability></label><label>Similarity <output data-output="similarity">' + state.voiceSimilarity + '</output><input type="range" min="0" max="1" step="0.05" value="' + state.voiceSimilarity + '" data-voice-similarity></label><label>Style <output data-output="style">' + state.voiceStyle + '</output><input type="range" min="0" max="1" step="0.05" value="' + state.voiceStyle + '" data-voice-style></label><label>Speed <output data-output="speed">' + state.voiceSpeed + '</output><input type="range" min="0.7" max="1.2" step="0.05" value="' + state.voiceSpeed + '" data-voice-speed></label></div><div class="setting-group setting-api"><h3>ElevenLabs API</h3><label>Session API key<input type="password" placeholder="粘贴后仅保存在本次页面会话" data-voice-api-key value="' + esc(state.voiceApiKey) + '" autocomplete="off"></label><p>有 Key 时调用 ElevenLabs Text-to-Speech API；没有 Key 时使用浏览器语音回退。Key 不写入仓库。</p><span class="api-state">' + state.voiceApiState + '</span></div></div></details></div><aside class="voice-observability"><div class="obs-head"><div><span class="mini-label">OBSERVABILITY</span><h3>运行观测</h3></div><span class="trace-id">TRACE ' + (state.voiceRound ? '0' + state.voiceRound : '—') + '</span></div><div class="metric-grid"><div><span>ASR</span><b>' + state.voiceLatency.asr + '<small>ms</small></b></div><div><span>Intent</span><b>' + state.voiceLatency.intent + '<small>ms</small></b></div><div><span>KB</span><b>' + state.voiceLatency.kb + '<small>ms</small></b></div><div><span>TTS</span><b>' + state.voiceLatency.tts + '<small>ms</small></b></div></div><div class="obs-section"><div class="obs-section-title"><span>KNOWLEDGE BASE</span><b>top hits</b></div><ul class="knowledge-list">' + knowledge + '</ul></div><div class="obs-section"><div class="obs-section-title"><span>EVENT LOG</span><b>' + state.voiceLogs.length + ' events</b></div><ul class="voice-log">' + logs + '</ul></div><div class="obs-boundary"><span>MOCK / READ-ONLY</span><p>业务数据使用脱敏 Mock；航空场景只读查询，运营商复杂请求转人工，足球结果是娱乐型偏好画像。</p></div><div class="obs-links">' + (scenario.id === 'football' ? '<a href="https://worldcup-sbti-mvp.surge.sh/" target="_blank" rel="noreferrer">打开完整版足球人格 Demo ↗</a>' : '') + '</div></aside></section>');
+}
+
 function deliveryAppView() {
   const items = [
     ['scope', '范围已确认', '目标用户、输入、输出和不做什么'],
@@ -98,6 +114,98 @@ function bindDeliveryEvents() {
   const summary = document.querySelector('[data-delivery-summary]');
   if (summary) summary.addEventListener('click', () => { state.deliverySummary = state.deliveryChecks.length === 4 ? 'READY FOR ACCEPTANCE' : 'IN PROGRESS / NEEDS EVIDENCE'; render(); });
 }
+function voiceLog(label, tone) {
+  state.voiceLogs.push({ time: new Date().toLocaleTimeString('zh-CN', { hour12: false }), label, tone: tone || 'cyan' });
+}
+function browserSpeak(text) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = state.voiceLanguage === 'en' ? 'en-US' : state.voiceLanguage === 'ar' ? 'ar-SA' : 'zh-CN';
+  utterance.rate = Number(state.voiceSpeed);
+  window.speechSynthesis.speak(utterance);
+}
+async function elevenLabsSpeak(text) {
+  if (!state.voiceApiKey) { state.voiceApiState = 'browser fallback'; browserSpeak(text); return; }
+  state.voiceApiState = 'ElevenLabs API';
+  const started = performance.now();
+  try {
+    const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + state.voiceVoice, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'xi-api-key': state.voiceApiKey },
+      body: JSON.stringify({ text, model_id: state.voiceModel, language_code: state.voiceLanguage, voice_settings: { stability: Number(state.voiceStability), similarity_boost: Number(state.voiceSimilarity), style: Number(state.voiceStyle), speed: Number(state.voiceSpeed), use_speaker_boost: true } })
+    });
+    if (!response.ok) throw new Error('ElevenLabs HTTP ' + response.status);
+    const blob = await response.blob();
+    const audio = document.querySelector('#voice-audio');
+    if (audio) { audio.src = URL.createObjectURL(blob); audio.hidden = false; audio.play().catch(() => {}); }
+    state.voiceLatency.tts = Math.max(1, Math.round(performance.now() - started));
+    voiceLog('ElevenLabs TTS audio ready', 'lime');
+  } catch (error) {
+    state.voiceApiState = 'API error → browser fallback';
+    state.voiceLatency.tts = Math.max(1, Math.round(performance.now() - started));
+    voiceLog('TTS fallback: ' + error.message, 'orange');
+    browserSpeak(text);
+  }
+}
+function processVoiceInput(text) {
+  const value = String(text || '').trim();
+  if (!value || state.voiceStatus === 'thinking') return;
+  const scenario = activeVoiceScenario();
+  state.voiceInput = '';
+  state.voiceMessages.push({ role: 'user', text: value });
+  state.voiceStatus = 'thinking';
+  state.voiceStep = Math.max(1, state.voiceStep);
+  state.voiceRound += 1;
+  state.voiceLatency.asr = 240 + Math.min(180, value.length * 4);
+  state.voiceLatency.intent = 28 + (value.length % 19);
+  state.voiceLatency.kb = 20 + (scenario.id === 'airline' ? 12 : 6);
+  voiceLog('user utterance received', 'cyan');
+  voiceLog('intent classified: ' + scenario.id, 'cyan');
+  render();
+  window.setTimeout(() => {
+    state.voiceStep = Math.min(scenario.workflow.length, 4);
+    state.voiceMessages.push({ role: 'assistant', text: scenario.reply });
+    state.voiceStatus = 'ready';
+    voiceLog('knowledge base top hit returned', 'lime');
+    voiceLog('response committed / handoff boundary checked', 'lime');
+    render();
+    elevenLabsSpeak(scenario.reply);
+  }, 420);
+}
+function bindVoiceEvents() {
+  document.querySelectorAll('[data-voice-sample]').forEach((button) => button.addEventListener('click', () => {
+    const input = document.querySelector('#voice-input');
+    if (input) { input.value = button.dataset.voiceSample; state.voiceInput = input.value; input.focus(); }
+  }));
+  const input = document.querySelector('#voice-input');
+  if (input) input.addEventListener('input', (event) => { state.voiceInput = event.target.value; });
+  const send = document.querySelector('[data-voice-send]');
+  if (send) send.addEventListener('click', () => processVoiceInput(state.voiceInput));
+  const mic = document.querySelector('[data-voice-mic]');
+  if (mic) mic.addEventListener('click', () => {
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) { state.voiceApiState = 'browser recognition unavailable'; voiceLog('microphone API unavailable; use text input', 'orange'); render(); return; }
+    const recognition = new Recognition();
+    recognition.lang = state.voiceLanguage === 'en' ? 'en-US' : state.voiceLanguage === 'ar' ? 'ar-SA' : 'zh-CN';
+    recognition.interimResults = false;
+    recognition.onstart = () => { state.voiceStatus = 'listening'; voiceLog('microphone listening', 'cyan'); render(); };
+    recognition.onresult = (event) => { const transcript = event.results[0][0].transcript; processVoiceInput(transcript); };
+    recognition.onerror = (event) => { state.voiceStatus = 'ready'; state.voiceApiState = 'microphone error'; voiceLog('microphone error: ' + event.error, 'orange'); render(); };
+    recognition.onend = () => { if (state.voiceStatus === 'listening') { state.voiceStatus = 'ready'; render(); } };
+    recognition.start();
+  });
+  const speak = document.querySelector('[data-voice-speak]');
+  if (speak) speak.addEventListener('click', () => { const last = [...state.voiceMessages].reverse().find((item) => item.role === 'assistant'); if (last) elevenLabsSpeak(last.text); });
+  document.querySelectorAll('[data-voice-language]').forEach((el) => el.addEventListener('change', (event) => { state.voiceLanguage = event.target.value; }));
+  document.querySelectorAll('[data-voice-voice]').forEach((el) => el.addEventListener('change', (event) => { state.voiceVoice = event.target.value; }));
+  document.querySelectorAll('[data-voice-model]').forEach((el) => el.addEventListener('change', (event) => { state.voiceModel = event.target.value; }));
+  const apiKey = document.querySelector('[data-voice-api-key]');
+  if (apiKey) apiKey.addEventListener('input', (event) => { state.voiceApiKey = event.target.value; state.voiceApiState = event.target.value ? 'ready to call ElevenLabs' : 'browser fallback'; });
+  const sliderMap = [['[data-voice-stability]', 'voiceStability', 'stability'], ['[data-voice-similarity]', 'voiceSimilarity', 'similarity'], ['[data-voice-style]', 'voiceStyle', 'style'], ['[data-voice-speed]', 'voiceSpeed', 'speed']];
+  sliderMap.forEach(([selector, key, output]) => { const el = document.querySelector(selector); if (el) el.addEventListener('input', (event) => { state[key] = event.target.value; const target = document.querySelector('[data-output="' + output + '"]'); if (target) target.value = event.target.value; }); });
+}
+
 function bindAppCards() {
   document.querySelectorAll('[data-app-route]').forEach((card) => {
     const open = () => {
@@ -115,13 +223,18 @@ function refreshLab() {
   lab.outerHTML = labPanel(lab.classList.contains('compact'));
   bindLabEvents();
   bindDeliveryEvents();
+  bindVoiceEvents();
   bindAppCards();
 }
 function render() {
-  const hash = window.location.hash.replace(/^#\/?/, '');
+  const rawHash = window.location.hash.replace(/^#\/?/, '');
+  const hashParts = rawHash.split('?');
+  const hash = hashParts[0];
+  const query = new URLSearchParams(hashParts[1] || '');
   const segments = hash.split('/').filter(Boolean);
   if (!segments.length) app.innerHTML = homeView();
   else if (segments[0] === 'apps' && segments[1] === 'agent') app.innerHTML = labView();
+  else if (segments[0] === 'apps' && segments[1] === 'voice') app.innerHTML = voiceScenarioView(query.get('scenario') || 'carrier');
   else if (segments[0] === 'apps' && segments[1] === 'delivery') app.innerHTML = deliveryAppView();
   else if (segments[0] === 'apps') app.innerHTML = appsView();
   else if (segments[0] === 'lab') app.innerHTML = labView();
@@ -131,6 +244,7 @@ function render() {
   else app.innerHTML = notFoundView();
   bindLabEvents();
   bindDeliveryEvents();
+  bindVoiceEvents();
   bindAppCards();
   window.scrollTo({ top: 0, behavior: 'instant' });
 }

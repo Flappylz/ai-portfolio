@@ -52,18 +52,38 @@ export const apps = [
     accent: 'cyan'
   },
   {
-    id: 'voice',
+    id: 'carrier',
     number: '02',
-    title: 'Realtime Voice Playground',
-    label: '公开 Demo',
-    description: '打开已有实时语音演示，体验语音状态、字幕和连续对话。',
-    tags: ['Voice Agent', 'ASR/TTS', '状态机'],
-    url: 'https://flappylz.github.io/ai-realtime-interaction/#/realtimeExperienceDemo',
+    title: '运营商 Inbound 咨询',
+    label: '语音场景 Demo',
+    description: '模拟用户来电咨询套餐、账单和故障，展示意图识别、知识检索和转人工。',
+    tags: ['Inbound', 'Knowledge', 'Handoff'],
+    route: '#/apps/voice?scenario=carrier',
     accent: 'violet'
   },
   {
-    id: 'hardware',
+    id: 'airline',
     number: '03',
+    title: '航空票面信息查询',
+    label: '语音场景 Demo',
+    description: '输入或说出航班、日期和乘机人信息，展示票面字段抽取、规则校验和结果播报。',
+    tags: ['Airline', 'Extraction', 'Rules'],
+    route: '#/apps/voice?scenario=airline',
+    accent: 'lime'
+  },
+  {
+    id: 'football',
+    number: '04',
+    title: '足球人格测试',
+    label: '语音场景 Demo',
+    description: '通过连续语音问答完成足球人格测试，展示题库、轮次状态和结果评估。',
+    tags: ['SBTI', 'Voice Test', 'Result'],
+    route: '#/apps/voice?scenario=football',
+    accent: 'orange'
+  },
+  {
+    id: 'hardware',
+    number: '05',
     title: 'Hardware Agent Kit',
     label: '公开 Demo',
     description: '进入硬件内容平台，查看玩法包、设备绑定和英语陪练流程。',
@@ -73,13 +93,49 @@ export const apps = [
   },
   {
     id: 'delivery',
-    number: '04',
+    number: '06',
     title: 'Delivery Control Room',
     label: '本地可操作',
     description: '点选 PoC、验收和风险项，生成一份可核验的交付状态。',
     tags: ['PoC', '验收', '风险'],
     route: '#/apps/delivery',
     accent: 'orange'
+  }
+];
+
+export const voiceScenarios = [
+  {
+    id: 'carrier',
+    title: '运营商 Inbound 咨询',
+    subtitle: '套餐、账单、故障与转人工',
+    accent: 'violet',
+    prompt: '例如：我想查一下家用宽带套餐，最近经常断线。',
+    workflow: ['接听与识别', '判断意图', '检索知识库', '生成答复', '转人工 / 结束'],
+    knowledge: [['家庭宽带套餐 KB-021', '套餐资费、速率和合约期', '96%'], ['宽带故障排查 KB-044', '光猫、线路和预约上门规则', '91%'], ['人工转接策略 KB-008', '高风险和多次失败的升级条件', '88%']],
+    examples: ['我想查一下家用宽带套餐', '我的宽带今天一直断线', '帮我转人工客服'],
+    reply: '我先确认你的咨询类型，再从运营商知识库检索对应规则。如果是连续故障或需要修改合同，我会把上下文一起交给人工客服。'
+  },
+  {
+    id: 'airline',
+    title: '航空票面信息查询',
+    subtitle: '航班、日期、乘机人和票面规则',
+    accent: 'lime',
+    prompt: '例如：帮我查 6 月 18 日从北京飞巴林的航班票面信息。',
+    workflow: ['接收语音', '抽取票面字段', '校验航班规则', '组织结果', '播报与确认'],
+    knowledge: [['航班票面字段 KB-A12', '航班号、日期、航段和乘机人字段', '98%'], ['变更与退改规则 KB-A44', '票价类型、行李额和改签限制', '93%'], ['机场服务 KB-A08', '值机、登机口和特殊服务提示', '89%']],
+    examples: ['查 6 月 18 日北京到巴林的航班', '这个票面包含多少行李额', '如果改签要怎么处理'],
+    reply: '我会先把航班日期、出发地、到达地和乘机人信息抽出来，再校验票面规则。涉及价格和最终出票时，需要回到真实航司系统确认。'
+  },
+  {
+    id: 'football',
+    title: '足球人格测试',
+    subtitle: '连续问答、轮次进度与人格结果',
+    accent: 'orange',
+    prompt: '例如：在球队落后时，我通常会先稳定队友再找机会。',
+    workflow: ['欢迎与授权', '完成 5 轮问答', '记录人格维度', '生成评估结果', '分享球星风格'],
+    knowledge: [['足球人格题库 KB-F01', '进攻、协作、决策和抗压四个维度', '97%'], ['结果解释模板 KB-F12', '人格维度到球星风格的解释规则', '90%'], ['安全与版权口径 KB-F19', '非官方赛事、非真人复刻的公开表达边界', '94%']],
+    examples: ['我在落后时会先稳定队友', '我喜欢临场调整战术', '完成这一轮测试'],
+    reply: '我会记录你的回答落在哪些人格维度，完成 5 轮后生成一份解释型结果。结果是风格参考，不是心理诊断，也不代表官方球员结论。'
   }
 ];
 

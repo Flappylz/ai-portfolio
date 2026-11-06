@@ -2,7 +2,9 @@
 
 中文优先的 AI 产品作品集，展示 Agent、实时语音、解决方案和智能硬件产品能力。
 
-首页先展示 **Application Desk**：四个应用入口分别通向 Agent Launch Lab、Realtime Voice Playground、Hardware Agent Kit 和 Delivery Control Room。面试官可以先打开 Demo，再查看后面的产品拆解。
+首页先展示 **Application Desk**：六个应用入口分别通向 Agent Launch Lab、运营商 Inbound 咨询、航空票面信息查询、足球人格测试、Hardware Agent Kit 和 Delivery Control Room。面试官可以先打开 Demo，再查看后面的产品拆解。
+
+三个语音场景支持文本输入和浏览器麦克风，页面内展示工作流、知识库命中、ASR / Intent / KB / TTS 延迟和事件日志。高级语音设置支持语言、音色、模型、输出格式、稳定性、相似度、风格和速度；填写会话级 Key 后会调用 ElevenLabs Text-to-Speech API，否则使用浏览器语音回退。Key 不写入仓库。
 
 其中 **Agent Launch Lab** 支持选择 Agent 模式、输入想法、运行本地模拟评测，并把版本推进到发布候选；**Delivery Control Room** 支持点选 PoC、验收和交付证据，生成当前状态。作品卡片使用原创的抽象产品视觉，不依赖既有项目截图。
 

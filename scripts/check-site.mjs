@@ -15,7 +15,7 @@ for (const file of files) {
 }
 
 const main = await readFile('src/main.js', 'utf8');
-for (const required of ['projects', 'method', 'apps', 'appLauncher', 'hashchange', 'github.com/Flappylz', 'Agent Launch Lab', 'speechSynthesis', 'BUILD MODE']) {
+for (const required of ['projects', 'method', 'apps', 'appLauncher', 'voiceScenarioView', 'api.elevenlabs.io', 'xi-api-key', 'hashchange', 'github.com/Flappylz', 'Agent Launch Lab', 'speechSynthesis', 'BUILD MODE']) {
   if (!main.includes(required)) {
     console.error(`Missing required site behavior: ${required}`);
     failed = true;
