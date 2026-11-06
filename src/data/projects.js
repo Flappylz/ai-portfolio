@@ -42,18 +42,8 @@ export const agentModes = [
 
 export const apps = [
   {
-    id: 'agent',
-    number: '01',
-    title: 'Agent Launch Lab',
-    label: '本地可操作',
-    description: '切换 Agent、输入需求、运行评测，再发布一个候选版本。',
-    tags: ['Agent', '评测', '发布'],
-    route: '#/apps/agent',
-    accent: 'cyan'
-  },
-  {
     id: 'carrier',
-    number: '02',
+    number: '01',
     title: '运营商 Inbound 咨询',
     label: '语音场景 Demo',
     description: '模拟用户来电咨询套餐、账单和故障，展示意图识别、知识检索和转人工。',
@@ -63,7 +53,7 @@ export const apps = [
   },
   {
     id: 'airline',
-    number: '03',
+    number: '02',
     title: '航空票面信息查询',
     label: '语音场景 Demo',
     description: '输入或说出航班、日期和乘机人信息，展示票面字段抽取、规则校验和结果播报。',
@@ -73,32 +63,12 @@ export const apps = [
   },
   {
     id: 'football',
-    number: '04',
+    number: '03',
     title: '足球人格测试',
     label: '语音场景 Demo',
     description: '通过连续语音问答完成足球人格测试，展示题库、轮次状态和结果评估。',
     tags: ['SBTI', 'Voice Test', 'Result'],
     route: '#/apps/voice?scenario=football',
-    accent: 'orange'
-  },
-  {
-    id: 'hardware',
-    number: '05',
-    title: 'Hardware Agent Kit',
-    label: '公开 Demo',
-    description: '进入硬件内容平台，查看玩法包、设备绑定和英语陪练流程。',
-    tags: ['AIoT', '内容平台', '设备'],
-    url: 'https://baigong-hardware-content-demo.vercel.app/',
-    accent: 'lime'
-  },
-  {
-    id: 'delivery',
-    number: '06',
-    title: 'Delivery Control Room',
-    label: '本地可操作',
-    description: '点选 PoC、验收和风险项，生成一份可核验的交付状态。',
-    tags: ['PoC', '验收', '风险'],
-    route: '#/apps/delivery',
     accent: 'orange'
   }
 ];
