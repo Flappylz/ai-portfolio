@@ -10,6 +10,7 @@ Configure secrets with the provider secret store, never in source:
 LIVEKIT_URL
 LIVEKIT_API_KEY
 LIVEKIT_API_SECRET
+LIVEKIT_AGENT_ID
 ELEVENLABS_API_KEY
 ELEVENLABS_VOICE_ID_CARRIER
 ELEVENLABS_VOICE_ID_AIRLINE
@@ -26,5 +27,7 @@ curl http://127.0.0.1:8787/api/health
 ## Deployment shape
 
 Use a separate Worker project with `runtime/worker/index.js` as `main`. Set secrets with `wrangler secret put ...`; do not commit a `.dev.vars` file. The Worker can issue short-lived LiveKit JWTs, stream the ElevenLabs `stream-input` WebSocket, and expose an ephemeral event/trace stream for the public demo. Requests are not session-affined, so an isolate recycle or a different isolate can lose an in-memory session; durable production tracing and cross-request session state belong in a Durable Object or external store. The LiveKit Agent process remains a separate managed worker/container.
+
+`LIVEKIT_AGENT_ID` is the registered Agent Name used in the token's room configuration. Without it, live sessions are rejected instead of connecting to a room with no agent.
 
 This adapter is intentionally not registered as a Site or deployed automatically in this change.
