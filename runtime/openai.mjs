@@ -22,6 +22,13 @@ function safeErrorCode(payload, fallback) {
   return String(code).replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 120);
 }
 
+function outputText(payload) {
+  const parts = Array.isArray(payload?.output)
+    ? payload.output.flatMap((item) => Array.isArray(item?.content) ? item.content : [])
+    : [];
+  return parts.filter((item) => item?.type === 'output_text').map((item) => item.text || '').join('').trim();
+}
+
 export async function probeOpenAI({ generation = false, timeoutMs = defaultTimeoutMs } = {}) {
   const { apiKey, baseUrl, model } = config();
   if (!apiKey) return { configured: false, verified: false, status: null, code: 'MISSING_SECRET' };
@@ -88,7 +95,7 @@ export async function generateOpenAI({ input, model: requestedModel, timeoutMs =
     const payload = await response.json().catch(() => null);
     const requestId = response.headers.get('x-request-id') || null;
     if (!response.ok) return { configured: true, verified: false, status: response.status, code: safeErrorCode(payload, `HTTP_${response.status}`), requestId };
-    return { configured: true, verified: true, status: response.status, code: null, requestId, responseId: payload?.id || null, model, text: String(payload?.output_text || '').slice(0, 4000) };
+    return { configured: true, verified: true, status: response.status, code: null, requestId, responseId: payload?.id || null, model, text: outputText(payload).slice(0, 4000) };
   } catch (error) {
     return { configured: true, verified: false, status: null, code: error?.name === 'AbortError' ? 'TIMEOUT' : 'UPSTREAM_UNREACHABLE' };
   } finally {

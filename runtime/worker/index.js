@@ -146,6 +146,11 @@ function traceResponse(session, env) {
   return json({ session: sessionPayload(session), events: session.events, persistence: 'ephemeral_worker_memory', warning: 'Trace resets when the worker isolate is recycled.' }, 200, env);
 }
 
+function responseText(payload) {
+  const parts = Array.isArray(payload?.output) ? payload.output.flatMap((item) => Array.isArray(item?.content) ? item.content : []) : [];
+  return parts.filter((item) => item?.type === 'output_text').map((item) => item.text || '').join('').trim().slice(0, 4000);
+}
+
 async function openAIRespond(request, env) {
   if (!env.OPENAI_API_KEY) return json({ configured: false, verified: false, status: null, code: 'MISSING_SECRET' }, 503, env);
   const body = await request.json().catch(() => null);
@@ -161,7 +166,7 @@ async function openAIRespond(request, env) {
     });
     const payload = await response.json().catch(() => null);
     const code = payload?.error?.code || payload?.error?.type || `HTTP_${response.status}`;
-    return json(response.ok ? { configured: true, verified: true, status: response.status, code: null, responseId: payload?.id || null, model, text: String(payload?.output_text || '').slice(0, 4000) } : { configured: true, verified: false, status: response.status, code: String(code).replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 120) }, response.ok ? 200 : 502, env);
+    return json(response.ok ? { configured: true, verified: true, status: response.status, code: null, responseId: payload?.id || null, model, text: responseText(payload) } : { configured: true, verified: false, status: response.status, code: String(code).replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 120) }, response.ok ? 200 : 502, env);
   } catch (error) {
     return json({ configured: true, verified: false, status: null, code: error?.name === 'AbortError' ? 'TIMEOUT' : 'UPSTREAM_UNREACHABLE' }, 502, env);
   } finally {
