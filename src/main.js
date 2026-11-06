@@ -150,7 +150,10 @@ async function elevenLabsSpeak(text) {
     const socket = new WebSocket(socketUrl);
     state.voiceTtsSocket = socket;
     const chunks = [];
-    socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'text', text, flush: true })));
+    socket.addEventListener('open', () => {
+      socket.send(JSON.stringify({ type: 'text', text, flush: true }));
+      socket.send(JSON.stringify({ type: 'end' }));
+    });
     socket.addEventListener('message', (event) => {
       let message;
       try { message = JSON.parse(event.data); } catch { return; }
