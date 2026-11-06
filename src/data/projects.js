@@ -40,6 +40,49 @@ export const agentModes = [
   }
 ];
 
+export const apps = [
+  {
+    id: 'agent',
+    number: '01',
+    title: 'Agent Launch Lab',
+    label: '本地可操作',
+    description: '切换 Agent、输入需求、运行评测，再发布一个候选版本。',
+    tags: ['Agent', '评测', '发布'],
+    route: '#/apps/agent',
+    accent: 'cyan'
+  },
+  {
+    id: 'voice',
+    number: '02',
+    title: 'Realtime Voice Playground',
+    label: '公开 Demo',
+    description: '打开已有实时语音演示，体验语音状态、字幕和连续对话。',
+    tags: ['Voice Agent', 'ASR/TTS', '状态机'],
+    url: 'https://flappylz.github.io/ai-realtime-interaction/#/realtimeExperienceDemo',
+    accent: 'violet'
+  },
+  {
+    id: 'hardware',
+    number: '03',
+    title: 'Hardware Agent Kit',
+    label: '公开 Demo',
+    description: '进入硬件内容平台，查看玩法包、设备绑定和英语陪练流程。',
+    tags: ['AIoT', '内容平台', '设备'],
+    url: 'https://baigong-hardware-content-demo.vercel.app/',
+    accent: 'lime'
+  },
+  {
+    id: 'delivery',
+    number: '04',
+    title: 'Delivery Control Room',
+    label: '本地可操作',
+    description: '点选 PoC、验收和风险项，生成一份可核验的交付状态。',
+    tags: ['PoC', '验收', '风险'],
+    route: '#/apps/delivery',
+    accent: 'orange'
+  }
+];
+
 export const projects = [
   {
     slug: 'agent-launch-lab',
