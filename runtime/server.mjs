@@ -1,9 +1,11 @@
+import './env.mjs';
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { URL } from 'node:url';
 import { AccessToken } from 'livekit-server-sdk';
 import { RoomAgentDispatch, RoomConfiguration } from '@livekit/protocol';
 import { WebSocket, WebSocketServer } from 'ws';
+import { generateOpenAI, openAIConfigStatus, probeOpenAI } from './openai.mjs';
 
 const port = Number(process.env.PORT || 8787);
 const defaultMode = process.env.RUNTIME_DEFAULT_MODE || 'live';
@@ -41,6 +43,7 @@ function configStatus() {
     livekit: has('LIVEKIT_URL') && has('LIVEKIT_API_KEY') && has('LIVEKIT_API_SECRET') && has('LIVEKIT_AGENT_ID'),
     elevenlabs: has('ELEVENLABS_API_KEY'),
     openai: has('OPENAI_API_KEY'),
+    openaiModel: openAIConfigStatus().modelConfigured,
     defaultMode
   };
 }
@@ -317,7 +320,13 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/health') {
       const body = { ok: true, service: 'voice-runtime', now: now(), config: configStatus() };
       if (url.searchParams.get('probe') === '1') body.elevenlabsProbe = await probeElevenLabs();
+      if (url.searchParams.get('openai') === '1') body.openaiProbe = await probeOpenAI();
       return sendJson(res, 200, body);
+    }
+    if (req.method === 'POST' && url.pathname === '/api/ai/respond') {
+      const body = await readBody(req);
+      const result = await generateOpenAI({ input: body?.input, model: body?.model });
+      return sendJson(res, result.verified ? 200 : result.code === 'MISSING_SECRET' ? 503 : 502, result);
     }
     if (req.method === 'POST' && url.pathname === '/api/voice/session') {
       const result = await createSession(await readBody(req));

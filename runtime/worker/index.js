@@ -146,6 +146,29 @@ function traceResponse(session, env) {
   return json({ session: sessionPayload(session), events: session.events, persistence: 'ephemeral_worker_memory', warning: 'Trace resets when the worker isolate is recycled.' }, 200, env);
 }
 
+async function openAIRespond(request, env) {
+  if (!env.OPENAI_API_KEY) return json({ configured: false, verified: false, status: null, code: 'MISSING_SECRET' }, 503, env);
+  const body = await request.json().catch(() => null);
+  const model = String(body?.model || env.OPENAI_MODEL || 'gpt-5.6-sol').trim();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${env.OPENAI_API_KEY}`, accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ model, input: String(body?.input || '').slice(0, 6000), max_output_tokens: 16 }),
+      signal: controller.signal
+    });
+    const payload = await response.json().catch(() => null);
+    const code = payload?.error?.code || payload?.error?.type || `HTTP_${response.status}`;
+    return json(response.ok ? { configured: true, verified: true, status: response.status, code: null, responseId: payload?.id || null, model, text: String(payload?.output_text || '').slice(0, 4000) } : { configured: true, verified: false, status: response.status, code: String(code).replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 120) }, response.ok ? 200 : 502, env);
+  } catch (error) {
+    return json({ configured: true, verified: false, status: null, code: error?.name === 'AbortError' ? 'TIMEOUT' : 'UPSTREAM_UNREACHABLE' }, 502, env);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function ttsSocket(request, env) {
   if (!env.ELEVENLABS_API_KEY) return json({ error: 'ELEVENLABS_CREDENTIALS_MISSING', runtimeMode: 'sandbox' }, 503, env);
   const url = new URL(request.url);
@@ -251,6 +274,7 @@ export default {
       if (url.searchParams.get('probe') === '1') body.elevenlabsProbe = await probeElevenLabs(env);
       return json(body, 200, env);
     }
+    if (request.method === 'POST' && url.pathname === '/api/ai/respond') return openAIRespond(request, env);
     if (request.method === 'POST' && url.pathname === '/api/voice/session') return createSession(request, env);
     if (request.method === 'POST' && url.pathname === '/api/voice/answer') return updateSession(request, env, 'answer');
     if (request.method === 'POST' && url.pathname === '/api/voice/end') return updateSession(request, env, 'end');
