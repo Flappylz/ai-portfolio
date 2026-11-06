@@ -47,15 +47,23 @@ function configStatus() {
 async function probeElevenLabs() {
   if (!has('ELEVENLABS_API_KEY')) return { configured: false, verified: false, status: null, code: 'MISSING_SECRET' };
   try {
-    const response = await fetch('https://api.elevenlabs.io/v1/models', { headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY } });
-    let body = null;
-    try { body = await response.json(); } catch {}
-    return {
-      configured: true,
-      verified: response.ok,
-      status: response.status,
-      code: response.ok ? null : String(body?.detail?.status || body?.code || body?.error || `HTTP_${response.status}`).slice(0, 100)
-    };
+    const voiceId = process.env.ELEVENLABS_VOICE_ID_CARRIER || scenarioDefaults.carrier.fallbackVoice;
+    const endpoint = `wss://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream-input?model_id=eleven_flash_v2_5&language_code=zh&output_format=mp3_44100_128`;
+    const socket = new WebSocket(endpoint, { headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY } });
+    return await new Promise((resolve) => {
+      let settled = false;
+      const finish = (result) => { if (settled) return; settled = true; clearTimeout(timer); try { socket.close(); } catch {} resolve(result); };
+      const timer = setTimeout(() => finish({ configured: true, verified: true, status: 101, code: null }), 1200);
+      socket.once('open', () => { try { socket.send(JSON.stringify({ text: ' ' })); } catch { finish({ configured: true, verified: false, status: null, code: 'UPSTREAM_UNREACHABLE' }); } });
+      socket.on('message', (raw) => {
+        try {
+          const message = JSON.parse(raw.toString());
+          if (message.error || message.code === 1008) return finish({ configured: true, verified: false, status: 400, code: String(message.code || message.error || 'UPSTREAM_ERROR').slice(0, 100) });
+          if (message.audio) finish({ configured: true, verified: true, status: 101, code: null });
+        } catch {}
+      });
+      socket.once('error', () => finish({ configured: true, verified: false, status: null, code: 'UPSTREAM_UNREACHABLE' }));
+    });
   } catch (error) {
     return { configured: true, verified: false, status: null, code: 'UPSTREAM_UNREACHABLE' };
   }

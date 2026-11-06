@@ -162,26 +162,80 @@ async function ttsSocket(request, env) {
   const browser = pair[1];
   browser.accept();
   upstream.webSocket.accept();
-  browser.addEventListener('message', (event) => upstream.webSocket.send(event.data));
-  upstream.webSocket.addEventListener('message', (event) => browser.send(event.data));
+  const started = Date.now();
+  let firstAudio = false;
+  const send = (message) => { try { if (browser.readyState === 1) browser.send(JSON.stringify(message)); } catch {} };
+  const voiceSettings = {
+    stability: Number(url.searchParams.get('stability') || 0.5),
+    similarity_boost: Number(url.searchParams.get('similarity') || 0.8),
+    style: Number(url.searchParams.get('style') || 0.2),
+    speed: Number(url.searchParams.get('speed') || 1),
+    use_speaker_boost: true
+  };
+  const generationConfig = { chunk_length_schedule: [50, 120, 160, 290] };
+  try { upstream.webSocket.send(JSON.stringify({ text: ' ', voice_settings: voiceSettings, generation_config: generationConfig })); } catch {}
+  send({ type: 'tts_ready', voiceId, modelId: upstreamUrl.searchParams.get('model_id'), outputFormat: upstreamUrl.searchParams.get('output_format') });
+  browser.addEventListener('message', (event) => {
+    let message;
+    try { message = JSON.parse(typeof event.data === 'string' ? event.data : new TextDecoder().decode(event.data)); } catch { return send({ type: 'error', code: 'INVALID_JSON' }); }
+    try {
+      if (message.type === 'text') {
+        upstream.webSocket.send(JSON.stringify({ text: typeof message.text === 'string' ? message.text : '', flush: Boolean(message.flush), try_trigger_generation: Boolean(message.tryTriggerGeneration) }));
+      } else if (message.type === 'flush') {
+        upstream.webSocket.send(JSON.stringify({ text: ' ', flush: true }));
+      } else if (message.type === 'end') {
+        upstream.webSocket.send(JSON.stringify({ text: '' }));
+      } else if (message.type === 'keep_alive') {
+        upstream.webSocket.send(JSON.stringify({ text: ' ' }));
+      }
+    } catch { send({ type: 'error', code: 'TTS_NOT_READY' }); }
+  });
+  upstream.webSocket.addEventListener('message', (event) => {
+    let message;
+    try { message = JSON.parse(typeof event.data === 'string' ? event.data : new TextDecoder().decode(event.data)); } catch { return send({ type: 'error', code: 'ELEVENLABS_INVALID_FRAME' }); }
+    if (message.error || message.code === 1008) {
+      return send({ type: 'error', code: message.code || 'ELEVENLABS_UPSTREAM_ERROR', message: message.message || message.error || 'upstream error' });
+    }
+    if (message.audio) {
+      if (!firstAudio) {
+        firstAudio = true;
+        send({ type: 'tts_first_byte', ttfbMs: Math.max(1, Date.now() - started) });
+      }
+      send({ type: 'audio', audio: message.audio, alignment: message.alignment || null, isFinal: Boolean(message.isFinal) });
+    }
+    if (message.isFinal) send({ type: 'tts_final' });
+  });
+  upstream.webSocket.addEventListener('error', () => send({ type: 'error', code: 'ELEVENLABS_UPSTREAM_ERROR' }));
+  upstream.webSocket.addEventListener('close', () => { send({ type: 'tts_closed' }); try { browser.close(); } catch {} });
   const closeBoth = () => { try { browser.close(); } catch {} try { upstream.webSocket.close(); } catch {} };
   browser.addEventListener('close', closeBoth);
-  upstream.webSocket.addEventListener('close', closeBoth);
+  browser.addEventListener('error', closeBoth);
   return new Response(null, { status: 101, webSocket: client, headers: cors(env) });
 }
 
 async function probeElevenLabs(env) {
   if (!env.ELEVENLABS_API_KEY) return { configured: false, verified: false, status: null, code: 'MISSING_SECRET' };
   try {
-    const response = await fetch('https://api.elevenlabs.io/v1/models', { headers: { 'xi-api-key': env.ELEVENLABS_API_KEY } });
-    let body = null;
-    try { body = await response.json(); } catch {}
-    return {
-      configured: true,
-      verified: response.ok,
-      status: response.status,
-      code: response.ok ? null : String(body?.detail?.status || body?.code || body?.error || `HTTP_${response.status}`).slice(0, 100)
-    };
+    const voiceId = env.ELEVENLABS_VOICE_ID_CARRIER || SCENARIOS.carrier.fallbackVoice;
+    const endpoint = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream-input?model_id=eleven_flash_v2_5&language_code=zh&output_format=mp3_44100_128`;
+    const response = await fetch(endpoint, { headers: { Upgrade: 'websocket', 'xi-api-key': env.ELEVENLABS_API_KEY } });
+    if (response.status !== 101 || !response.webSocket) return { configured: true, verified: false, status: response.status, code: `HTTP_${response.status}` };
+    const socket = response.webSocket;
+    socket.accept();
+    return await new Promise((resolve) => {
+      let settled = false;
+      const finish = (result) => { if (settled) return; settled = true; clearTimeout(timer); try { socket.close(); } catch {} resolve(result); };
+      const timer = setTimeout(() => finish({ configured: true, verified: true, status: 101, code: null }), 1200);
+      socket.addEventListener('message', (event) => {
+        try {
+          const message = JSON.parse(typeof event.data === 'string' ? event.data : new TextDecoder().decode(event.data));
+          if (message.error || message.code === 1008) return finish({ configured: true, verified: false, status: 400, code: String(message.code || message.error || 'UPSTREAM_ERROR').slice(0, 100) });
+          if (message.audio) finish({ configured: true, verified: true, status: 101, code: null });
+        } catch {}
+      });
+      socket.addEventListener('error', () => finish({ configured: true, verified: false, status: null, code: 'UPSTREAM_UNREACHABLE' }));
+      try { socket.send(JSON.stringify({ text: ' ' })); } catch { finish({ configured: true, verified: false, status: null, code: 'UPSTREAM_UNREACHABLE' }); }
+    });
   } catch {
     return { configured: true, verified: false, status: null, code: 'UPSTREAM_UNREACHABLE' };
   }
