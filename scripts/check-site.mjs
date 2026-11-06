@@ -15,9 +15,18 @@ for (const file of files) {
 }
 
 const main = await readFile('src/main.js', 'utf8');
-for (const required of ['projects', 'method', 'apps', 'appLauncher', 'voiceScenarioView', 'api.elevenlabs.io', 'xi-api-key', 'hashchange', 'github.com/Flappylz', 'Agent Launch Lab', 'speechSynthesis', 'BUILD MODE']) {
-  if (!main.includes(required)) {
+const index = await readFile('index.html', 'utf8');
+const siteText = main + index;
+for (const required of ['projects', 'method', 'apps', 'appLauncher', 'voiceScenarioView', 'runtimeMode', 'voiceCallStatus', 'LiveKit WebRTC', 'sandbox / simulated', 'hashchange', 'github.com/Flappylz', 'speechSynthesis', 'fengliangze-ai-voice-runtime.wellsfung.chatgpt.site']) {
+  if (!siteText.includes(required)) {
     console.error(`Missing required site behavior: ${required}`);
+    failed = true;
+  }
+}
+
+for (const forbiddenRuntimeSecret of ['data-voice-api-key', 'xi-api-key', 'api.elevenlabs.io/v1/text-to-speech']) {
+  if (main.includes(forbiddenRuntimeSecret)) {
+    console.error(`src/main.js: browser-side ElevenLabs secret path found: ${forbiddenRuntimeSecret}`);
     failed = true;
   }
 }

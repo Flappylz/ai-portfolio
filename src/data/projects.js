@@ -77,6 +77,8 @@ export const voiceScenarios = [
   {
     id: 'carrier',
     title: '运营商 Inbound 咨询',
+    direction: 'inbound',
+    defaultVoice: 'George · neutral',
     subtitle: '套餐、账单、故障与转人工',
     accent: 'violet',
     prompt: '例如：我想查一下家用宽带套餐，最近经常断线。',
@@ -88,6 +90,8 @@ export const voiceScenarios = [
   {
     id: 'airline',
     title: '航空票面信息查询',
+    direction: 'inbound',
+    defaultVoice: 'Rachel · clear',
     subtitle: '航班、日期、乘机人和票面规则',
     accent: 'lime',
     prompt: '例如：帮我查 6 月 18 日从北京飞巴林的航班票面信息。',
@@ -99,6 +103,8 @@ export const voiceScenarios = [
   {
     id: 'football',
     title: '足球人格测试',
+    direction: 'outbound',
+    defaultVoice: '足球解说 · warm',
     subtitle: '连续问答、轮次进度与人格结果',
     accent: 'orange',
     prompt: '例如：在球队落后时，我通常会先稳定队友再找机会。',

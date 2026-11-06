@@ -8,7 +8,14 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
     "generate:qr": "node scripts/generate-qr.mjs",
-    "check": "node scripts/check-site.mjs"
+    "check": "node scripts/check-site.mjs",
+    "runtime": "node runtime/server.mjs",
+    "runtime:check": "node runtime/check.mjs"
+  },
+  "dependencies": {
+    "livekit-client": "^2.23.0",
+    "livekit-server-sdk": "^2.19.2",
+    "ws": "^8.22.1"
   },
   "devDependencies": {
     "qrcode": "^1.5.4",

@@ -4,11 +4,11 @@
 
 首页先展示 **Voice Applications**：三个应用入口分别通向运营商 Inbound 咨询、航空票面信息查询和足球人格测试。面试官进入后直接看到通话界面，再查看后面的产品拆解。
 
-三个语音场景支持文本输入和浏览器麦克风，页面内展示工作流、知识库命中、ASR / Intent / KB / TTS 延迟和事件日志。高级语音设置支持语言、音色、模型、输出格式、稳定性、相似度、风格和速度；填写会话级 Key 后会调用 ElevenLabs Text-to-Speech API，否则使用浏览器语音回退。Key 不写入仓库。
+三个语音场景使用一屏式 Voice Agent 控制台，按 Inbound / Outbound 展示拨号、来电、接听、WebRTC 状态、partial transcript、知识库命中和事件轨迹。高级语音设置支持语言、音色、模型、输出格式、稳定性、相似度、风格和速度；Live 模式通过服务端 ElevenLabs 流式 TTS，前端不要求体验者输入 Key。
 
-其中 **Agent Launch Lab** 支持选择 Agent 模式、输入想法、运行本地模拟评测，并把版本推进到发布候选；**Delivery Control Room** 支持点选 PoC、验收和交付证据，生成当前状态。作品卡片使用原创的抽象产品视觉，不依赖既有项目截图。
+产品拆解页保留产品定义、评测、交付证据和 RTC 架构说明；对外可体验入口只保留这三个语音应用。页面使用原创的抽象产品视觉，不依赖既有项目截图。
 
-公开 Demo 的推理使用本地模拟，语音使用浏览器原生 `speechSynthesis` 预览；不接入 11Labs、不放私有 API Key，也不展示客户敏感信息。
+公开页面支持 `LIVE` 和 `SANDBOX` 两种运行模式。Live 模式由 LiveKit / Agent / ElevenLabs 服务端提供真实会话和指标；服务未配置时明确降级为 `SANDBOX / SIMULATED`，使用服务端 TTS（若运行时已配置）或浏览器语音预览，不伪造 RTC 指标，也不展示客户敏感信息。
 
 ## 本地运行
 
@@ -28,6 +28,7 @@ npm run build
 
 - GitHub Pages：`https://flappylz.github.io/ai-portfolio/`
 - Codex Sites：`https://fengliangze-ai-portfolio.wellsfung.chatgpt.site/`
+- Voice runtime：`https://fengliangze-ai-voice-runtime.wellsfung.chatgpt.site/`（服务端 TTS / Session API；LiveKit 凭据未配置时返回 Sandbox 降级）
 
 ## 发布
 
