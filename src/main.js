@@ -170,7 +170,13 @@ async function elevenLabsSpeak(text) {
         voiceLog('server TTS audio ready', 'lime');
         render(true);
       }
-      if (message.type === 'error') { voiceLog('TTS error: ' + (message.code || 'upstream'), 'orange'); browserSpeak(text); }
+      if (message.type === 'error' || message.error || message.code === 1008) {
+        const reason = message.error || message.message || message.code || 'upstream';
+        state.voiceApiState = String(reason).includes('api_key') ? 'ElevenLabs auth invalid' : 'server TTS unavailable';
+        voiceLog('TTS error: ' + reason, 'orange');
+        browserSpeak(text);
+        render(true);
+      }
     });
     socket.addEventListener('error', () => { state.voiceApiState = 'server TTS unavailable'; voiceLog('TTS socket unavailable', 'orange'); browserSpeak(text); render(true); });
   } catch (error) {

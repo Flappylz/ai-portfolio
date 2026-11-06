@@ -44,6 +44,23 @@ function configStatus() {
   };
 }
 
+async function probeElevenLabs() {
+  if (!has('ELEVENLABS_API_KEY')) return { configured: false, verified: false, status: null, code: 'MISSING_SECRET' };
+  try {
+    const response = await fetch('https://api.elevenlabs.io/v1/models', { headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY } });
+    let body = null;
+    try { body = await response.json(); } catch {}
+    return {
+      configured: true,
+      verified: response.ok,
+      status: response.status,
+      code: response.ok ? null : String(body?.detail?.status || body?.code || body?.error || `HTTP_${response.status}`).slice(0, 100)
+    };
+  } catch (error) {
+    return { configured: true, verified: false, status: null, code: 'UPSTREAM_UNREACHABLE' };
+  }
+}
+
 function appendEvent(session, type, data = {}) {
   const event = { type, ts: now(), traceId: session.traceId, sessionId: session.id, ...data };
   session.events.push(event);
@@ -282,7 +299,11 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') return sendJson(res, 204, {});
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
-    if (req.method === 'GET' && url.pathname === '/api/health') return sendJson(res, 200, { ok: true, service: 'voice-runtime', now: now(), config: configStatus() });
+    if (req.method === 'GET' && url.pathname === '/api/health') {
+      const body = { ok: true, service: 'voice-runtime', now: now(), config: configStatus() };
+      if (url.searchParams.get('probe') === '1') body.elevenlabsProbe = await probeElevenLabs();
+      return sendJson(res, 200, body);
+    }
     if (req.method === 'POST' && url.pathname === '/api/voice/session') {
       const result = await createSession(await readBody(req));
       return sendJson(res, result.error ? (result.error === 'LIVE_CREDENTIALS_MISSING' ? 503 : 400) : 201, result);

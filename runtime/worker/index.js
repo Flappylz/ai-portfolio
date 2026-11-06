@@ -170,11 +170,32 @@ async function ttsSocket(request, env) {
   return new Response(null, { status: 101, webSocket: client, headers: cors(env) });
 }
 
+async function probeElevenLabs(env) {
+  if (!env.ELEVENLABS_API_KEY) return { configured: false, verified: false, status: null, code: 'MISSING_SECRET' };
+  try {
+    const response = await fetch('https://api.elevenlabs.io/v1/models', { headers: { 'xi-api-key': env.ELEVENLABS_API_KEY } });
+    let body = null;
+    try { body = await response.json(); } catch {}
+    return {
+      configured: true,
+      verified: response.ok,
+      status: response.status,
+      code: response.ok ? null : String(body?.detail?.status || body?.code || body?.error || `HTTP_${response.status}`).slice(0, 100)
+    };
+  } catch {
+    return { configured: true, verified: false, status: null, code: 'UPSTREAM_UNREACHABLE' };
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) });
-    if (request.method === 'GET' && url.pathname === '/api/health') return json({ ok: true, service: 'voice-runtime-worker', config: { livekit: Boolean(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET), elevenlabs: Boolean(env.ELEVENLABS_API_KEY) } }, 200, env);
+    if (request.method === 'GET' && url.pathname === '/api/health') {
+      const body = { ok: true, service: 'voice-runtime-worker', config: { livekit: Boolean(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET), elevenlabs: Boolean(env.ELEVENLABS_API_KEY) } };
+      if (url.searchParams.get('probe') === '1') body.elevenlabsProbe = await probeElevenLabs(env);
+      return json(body, 200, env);
+    }
     if (request.method === 'POST' && url.pathname === '/api/voice/session') return createSession(request, env);
     if (request.method === 'POST' && url.pathname === '/api/voice/answer') return updateSession(request, env, 'answer');
     if (request.method === 'POST' && url.pathname === '/api/voice/end') return updateSession(request, env, 'end');
