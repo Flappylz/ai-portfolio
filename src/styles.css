@@ -223,3 +223,20 @@ em { color: var(--cyan); font-style: normal; }
 .text-fallback[open] summary::after { content: "−"; }
 .text-fallback .voice-samples, .text-fallback .voice-composer { margin-left: 12px; margin-right: 12px; }
 .text-fallback .voice-samples { margin-bottom: 10px; }
+
+.voice-detail-cta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 8px; padding: 12px 14px; border: 1px solid rgba(106,240,217,.28); background: rgba(106,240,217,.04); }
+.voice-detail-cta span { color: var(--cyan); font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.voice-detail-cta a { color: var(--cyan); font-size: 11px; }
+.rtc-quick { padding-top: 18px; border-top: 1px solid var(--line); margin-top: 18px; }
+.rtc-quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 10px; }
+.rtc-quick-grid > div { padding: 9px; border: 1px solid var(--line); }
+.rtc-quick-grid span, .rtc-quick-grid b { display: block; }
+.rtc-quick-grid span { color: var(--quiet); font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.rtc-quick-grid b { margin-top: 5px; color: var(--lime); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.rtc-detail { border-top: 1px solid var(--line); }
+.rtc-pipeline { display: flex; align-items: stretch; gap: 7px; flex-wrap: wrap; margin-top: 20px; }
+.rtc-pipeline > div { flex: 1 1 130px; min-height: 88px; padding: 12px; border: 1px solid rgba(106,240,217,.32); background: rgba(106,240,217,.04); }
+.rtc-pipeline b, .rtc-pipeline span { display: block; }.rtc-pipeline b { color: var(--cyan); font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }.rtc-pipeline span { margin-top: 22px; color: var(--muted); font-size: 12px; }.rtc-pipeline > i { align-self: center; color: var(--cyan); font-style: normal; }
+.rtc-config-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 14px; }.rtc-config-grid > div { padding: 12px; border: 1px solid var(--line); }.rtc-config-grid span, .rtc-config-grid b { display: block; }.rtc-config-grid span { color: var(--quiet); font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; }.rtc-config-grid b { margin-top: 8px; color: var(--muted); font-size: 12px; font-weight: 500; }.rtc-detail-note { margin-top: 14px; padding: 12px; border-left: 2px solid var(--orange); color: var(--quiet); font-size: 11px; line-height: 1.6; }
+@media (max-width: 680px) { .voice-detail-cta { display: block; }.voice-detail-cta a { display: block; margin-top: 7px; }.rtc-config-grid { grid-template-columns: 1fr; }.rtc-pipeline { display: grid; grid-template-columns: 1fr; }.rtc-pipeline > i { justify-self: center; transform: rotate(90deg); } }

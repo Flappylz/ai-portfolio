@@ -143,6 +143,8 @@ export const projects = [
       '用失败场景和可验证反馈约束“听起来很聪明”的幻觉'
     ],
     architecture: ['麦克风 / 文本', 'VAD 与状态', '实时音频 / 字幕', 'Agent 回复', '打断与恢复'],
+    rtcPipeline: ['Capture + AEC', 'VAD / Turn Detection', 'WebRTC / WS Transport', 'ASR → LLM → Tools', 'Streaming TTS', 'Interrupt + Telemetry'],
+    configs: [['Transport', 'WebRTC primary / WebSocket fallback'], ['Audio', '16k PCM / mono / echo cancellation'], ['Turn taking', 'VAD + barge-in + cancel old response'], ['Resilience', 'reconnect backoff / jitter buffer / human handoff'], ['Observability', 'trace id / ASR / intent / TTS / end-to-end latency']],
     evaluation: ['插话是否及时停止旧回复', '字幕是否保持顺序与完整', '权限、断线和超时是否可解释'],
     limitations: '案例用系统设计和公开演示表达能力，真实 API、设备和生产链路仍需在目标岗位环境中接入。'
   },
