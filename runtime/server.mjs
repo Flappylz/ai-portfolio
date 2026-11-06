@@ -2,6 +2,7 @@ import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { URL } from 'node:url';
 import { AccessToken } from 'livekit-server-sdk';
+import { RoomAgentDispatch, RoomConfiguration } from '@livekit/protocol';
 import { WebSocket, WebSocketServer } from 'ws';
 
 const port = Number(process.env.PORT || 8787);
@@ -37,7 +38,7 @@ const readBody = async (req) => {
 
 function configStatus() {
   return {
-    livekit: has('LIVEKIT_URL') && has('LIVEKIT_API_KEY') && has('LIVEKIT_API_SECRET'),
+    livekit: has('LIVEKIT_URL') && has('LIVEKIT_API_KEY') && has('LIVEKIT_API_SECRET') && has('LIVEKIT_AGENT_ID'),
     elevenlabs: has('ELEVENLABS_API_KEY'),
     openai: has('OPENAI_API_KEY'),
     defaultMode
@@ -99,7 +100,7 @@ function sessionSummary(session) {
 }
 
 function missingLiveConfig(scenario) {
-  const required = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'ELEVENLABS_API_KEY'];
+  const required = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'LIVEKIT_AGENT_ID', 'ELEVENLABS_API_KEY'];
   return required.filter((name) => !has(name));
 }
 
@@ -112,6 +113,12 @@ async function issueLiveToken(session) {
     ttl: '10m'
   });
   access.addGrant({ roomJoin: true, room, canPublish: true, canSubscribe: true, canPublishData: true });
+  access.roomConfig = new RoomConfiguration({
+    agents: [new RoomAgentDispatch({
+      agentName: process.env.LIVEKIT_AGENT_ID,
+      metadata: JSON.stringify({ scenario: session.scenario, direction: session.direction, sessionId: session.id, traceId: session.traceId })
+    })]
+  });
   session.room = room;
   session.token = await access.toJwt();
   session.transport = 'livekit-webrtc';

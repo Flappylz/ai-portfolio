@@ -2,6 +2,8 @@
 
 This directory contains the server boundary for the portfolio's live voice demos. The static frontend can run without it in `SANDBOX` mode, but `LIVE` mode requires a LiveKit project, an Agent worker and ElevenLabs server secrets.
 
+See [`LIVEKIT_RUNBOOK.md`](./LIVEKIT_RUNBOOK.md) for the self-hosted and LiveKit Cloud setup sequence, required variables and verification commands.
+
 ## Start locally
 
 ```bash

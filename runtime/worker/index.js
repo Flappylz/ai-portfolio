@@ -63,7 +63,7 @@ async function signJwt(payload, secret) {
 }
 
 function liveConfig(env, scenario) {
-  const missing = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'ELEVENLABS_API_KEY'];
+  const missing = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'LIVEKIT_AGENT_ID', 'ELEVENLABS_API_KEY'];
   return missing.filter((key) => !env[key]);
 }
 
@@ -90,7 +90,8 @@ async function createSession(request, env) {
     name: 'Portfolio visitor',
     nbf: now - 5,
     exp: now + 600,
-    video: { roomJoin: true, room, canPublish: true, canSubscribe: true, canPublishData: true }
+    video: { roomJoin: true, room, canPublish: true, canSubscribe: true, canPublishData: true },
+    roomConfig: { agents: [{ agentName: env.LIVEKIT_AGENT_ID, metadata: JSON.stringify({ scenario, direction, sessionId, traceId }) }] }
   }, env.LIVEKIT_API_SECRET) : null;
   const session = { sessionId, traceId, scenario, direction, runtimeMode, room, serverUrl: env.LIVEKIT_URL || null, token, status: direction === 'outbound' ? 'ringing' : 'dialing', voiceId: body.voiceId || env[SCENARIOS[scenario].voiceKey] || SCENARIOS[scenario].fallbackVoice, createdAt: isoNow(), events: [] };
   sessions.set(sessionId, session);
@@ -246,7 +247,7 @@ export default {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) });
     if (request.method === 'GET' && url.pathname === '/api/health') {
-      const body = { ok: true, service: 'voice-runtime-worker', config: { livekit: Boolean(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET), elevenlabs: Boolean(env.ELEVENLABS_API_KEY) } };
+      const body = { ok: true, service: 'voice-runtime-worker', config: { livekit: Boolean(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET && env.LIVEKIT_AGENT_ID), elevenlabs: Boolean(env.ELEVENLABS_API_KEY) } };
       if (url.searchParams.get('probe') === '1') body.elevenlabsProbe = await probeElevenLabs(env);
       return json(body, 200, env);
     }
