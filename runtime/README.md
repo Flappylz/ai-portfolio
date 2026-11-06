@@ -12,12 +12,19 @@ npm run runtime
 
 Copy `.env.example` to a secret-managed environment. Do not commit the copy or paste provider keys into the frontend.
 
+For local development, save the real values in `runtime/.env` or `runtime/.env.local` (both are ignored by Git). `.env.local` takes precedence when both exist, and values already present in the process environment take precedence over both.
+
 Useful checks:
 
 ```bash
 curl http://127.0.0.1:8787/api/health
 npm run runtime:check
+npm run runtime:openai-check
 ```
+
+`runtime:openai-check` performs a real authenticated request to the OpenAI `/v1/models` endpoint without printing the key. To verify a minimal model generation as well, set `OPENAI_MODEL` and run `npm run runtime:openai-check -- --generation`. A missing key or failed upstream request exits with status 1.
+
+The health endpoint exposes only boolean configuration state. Add `?openai=1` to run the same authenticated `/v1/models` probe; no key value is returned.
 
 ## Runtime contract
 

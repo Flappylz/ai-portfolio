@@ -3,9 +3,20 @@ import process from 'node:process';
 import { WebSocket } from 'ws';
 
 const port = 8899;
+const secretNames = new Set([
+  'OPENAI_API_KEY',
+  'OPENAI_MODEL',
+  'OPENAI_BASE_URL',
+  'ELEVENLABS_API_KEY',
+  'LIVEKIT_URL',
+  'LIVEKIT_API_KEY',
+  'LIVEKIT_API_SECRET',
+  'LIVEKIT_AGENT_ID'
+]);
+const isolatedEnv = Object.fromEntries(Object.entries(process.env).filter(([name]) => !secretNames.has(name)));
 const child = spawn(process.execPath, ['runtime/server.mjs'], {
   cwd: process.cwd(),
-  env: { ...process.env, PORT: String(port), RUNTIME_DEFAULT_MODE: 'sandbox' },
+  env: { ...isolatedEnv, PORT: String(port), RUNTIME_DEFAULT_MODE: 'sandbox', RUNTIME_ENV_FILE: '/dev/null' },
   stdio: ['ignore', 'pipe', 'pipe']
 });
 let output = '';

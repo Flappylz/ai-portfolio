@@ -10,7 +10,8 @@
     "generate:qr": "node scripts/generate-qr.mjs",
     "check": "node scripts/check-site.mjs",
     "runtime": "node runtime/server.mjs",
-    "runtime:check": "node runtime/check.mjs"
+    "runtime:check": "node runtime/check.mjs",
+    "runtime:openai-check": "node runtime/openai-check.mjs"
   },
   "dependencies": {
     "livekit-client": "^2.23.0",
