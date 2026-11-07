@@ -338,3 +338,55 @@ em { color: var(--cyan); font-style: normal; }
   .voice-stage .voice-transcript { max-height:180px; }
   .call-action { flex:1; min-width:0; }
 }
+
+/* ChatGPT-style immersive call controls */
+.voice-stage { border-radius: 28px; background: radial-gradient(circle at 50% 30%, rgba(106,240,217,.16), transparent 38%), radial-gradient(circle at 50% 72%, rgba(212,245,74,.06), transparent 34%), #080f16; box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 22px 80px rgba(0,0,0,.22); }
+.voice-stage .stage-top { padding: 2px 4px 0; }
+.voice-stage .call-session-strip { opacity: .72; }
+.voice-stage .caller-orb { width: 220px; height: 220px; margin: clamp(28px, 8vh, 86px) auto 22px; border-width: 2px; box-shadow: 0 0 110px rgba(106,240,217,.2), inset 0 0 58px rgba(106,240,217,.08); font-size: 64px; }
+.voice-stage .call-wave { margin: 0 auto 20px; transform: scale(1.15); }
+.voice-stage > strong { font-size: 21px; letter-spacing: -.02em; }
+.voice-stage .call-actions { margin-top: auto; padding: 24px 0 4px; gap: 12px; align-items: center; }
+.voice-stage .call-action { width: 58px; height: 58px; min-width: 58px; padding: 0; border-radius: 50%; display: inline-grid; place-items: center; font-size: 0; line-height: 1; background: rgba(10,18,26,.72); }
+.voice-stage .call-action::before { font-size: 10px; color: var(--muted); }
+.voice-stage .call-action.caption-toggle::before { content: '字幕'; }
+.voice-stage .call-action.mute::before { content: '静音'; }
+.voice-stage .call-action.end::before, .voice-stage .call-action.reject::before { content: '结束'; color: var(--orange); }
+.voice-stage .call-action.answer { width: 82px; height: 82px; min-width: 82px; font-size: 12px; color: var(--bg); background: var(--lime); border-color: var(--lime); box-shadow: 0 0 34px rgba(212,245,74,.22); }
+.voice-stage .call-action.answer::before { display:none; }
+.voice-stage .call-action.voice-input { width: 82px; height: 82px; min-width: 82px; order: 3; color: var(--bg); background: var(--lime); border-color: var(--lime); box-shadow: 0 0 34px rgba(212,245,74,.22); }
+.voice-stage .call-action.voice-input::before { content: '◉'; display: block; color: var(--bg); font-size: 26px; }
+.voice-stage .call-action.voice-input:disabled { display: none; }
+.voice-stage .call-action.reconnect { display: none; }
+.voice-stage .call-action.caption-toggle { order: 1; }
+.voice-stage .call-action.mute { order: 2; }
+.voice-stage .call-action.end, .voice-stage .call-action.reject { order: 4; border-color: rgba(255,184,107,.55); }
+.voice-stage .call-action.end::before { content: '结束'; }
+.voice-stage .call-action.mute.active { background: rgba(106,240,217,.13); }
+.voice-stage .call-action:hover { transform: translateY(-2px); border-color: var(--cyan); }
+.voice-stage .voice-transcript { max-width: 720px; width: 100%; align-self: center; border-radius: 18px; background: rgba(8,15,22,.6); }
+.voice-stage > small { margin-top: 10px; opacity: .8; }
+@media (min-width: 1101px) {
+  .voice-stage { min-height: calc(100svh - 168px); }
+  .voice-context-panel, .voice-observe-panel { opacity: .9; }
+}
+@media (max-width: 760px) {
+  .voice-stage { border-radius: 24px; padding: 16px 14px; }
+  .voice-stage .caller-orb { width: 168px; height: 168px; margin-top: 48px; font-size: 52px; }
+  .voice-stage .call-actions { gap: 10px; padding-top: 22px; }
+  .voice-stage .call-action { width: 52px; height: 52px; min-width: 52px; }
+  .voice-stage .call-action.answer, .voice-stage .call-action.voice-input { width: 72px; height: 72px; min-width: 72px; }
+}
+
+/* The call surface is the first page; diagnostics continue below it. */
+@media (min-width: 761px) {
+  .voice-console { display: flex; flex-direction: column; gap: 14px; min-height: auto; }
+  .voice-stage { order: 1; width: 100%; min-height: calc(100svh - 190px); }
+  .voice-context-panel { order: 2; display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr); gap: 14px; }
+  .voice-context-panel > .panel-title:first-child,
+  .voice-context-panel > .context-intro,
+  .voice-context-panel > .detail-link { grid-column: 1 / -1; }
+  .voice-observe-panel { order: 3; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .voice-observe-panel > .panel-title,
+  .voice-observe-panel > .obs-boundary { grid-column: 1 / -1; }
+}
