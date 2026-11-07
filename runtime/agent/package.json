@@ -4,6 +4,7 @@
   "type": "module",
   "engines": { "node": ">=20" },
   "scripts": {
+    "build": "node --check agent.mjs",
     "check": "node --check agent.mjs",
     "dev": "lk agent dev",
     "start": "node agent.mjs start"
