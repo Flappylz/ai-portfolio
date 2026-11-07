@@ -67,7 +67,7 @@ try {
     body: JSON.stringify({ scenario: 'carrier', runtimeMode: 'sandbox', language: 'zh' })
   })).json();
   if (!created.session?.sessionId || created.session.direction !== 'inbound') throw new Error('sandbox session failed');
-  if (created.session.agentModel !== 'openai/gpt-4.1-mini' || created.session.asrModel !== 'openai/gpt-live-transcribe' || created.session.ttsModel !== 'eleven_flash_v2_5') throw new Error('model resolution failed');
+  if (created.session.agentModel !== 'openai/gpt-4.1-mini' || created.session.fastModel !== 'openai/gpt-4.1-mini' || created.session.slowModel !== 'openai/gpt-5.6-sol' || created.session.routing !== 'fast_voice+slow_validation' || created.session.asrModel !== 'openai/gpt-live-transcribe' || created.session.ttsModel !== 'eleven_flash_v2_5') throw new Error('model routing resolution failed');
 
   const events = [];
   const ws = new WebSocket(`ws://127.0.0.1:${port}/api/voice/events?sessionId=${created.session.sessionId}`);

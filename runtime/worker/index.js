@@ -14,8 +14,10 @@ const SESSION_TTL_MS = 15 * 60 * 1000;
 const REQUEST_WINDOW_MS = 60 * 1000;
 const REQUEST_LIMIT = 12;
 const requestWindows = new Map();
-const TRACE_EVENT_TYPES = new Set(['agent_joined', 'listening', 'speech_started', 'speech_stopped', 'partial_transcript', 'final_transcript', 'knowledge_hit', 'tool_call', 'handoff', 'tts_started', 'tts_first_byte', 'tts_text', 'speaking', 'barge_in', 'interrupted', 'metrics', 'error', 'ended']);
+const TRACE_EVENT_TYPES = new Set(['agent_joined', 'listening', 'speech_started', 'speech_stopped', 'partial_transcript', 'final_transcript', 'knowledge_hit', 'tool_call', 'handoff', 'tts_started', 'tts_first_byte', 'tts_text', 'speaking', 'barge_in', 'interrupted', 'deep_started', 'deep_result', 'deep_result_used', 'deep_error', 'metrics', 'error', 'ended']);
 const resolveAgentModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_LLM_MODEL || 'openai/gpt-4.1-mini');
+const resolveFastModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_FAST_LLM_MODEL || env.LIVEKIT_LLM_MODEL || 'openai/gpt-4.1-mini');
+const resolveSlowModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_SLOW_LLM_MODEL || 'openai/gpt-5.6-sol');
 const resolveAsrModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_STT_MODEL || 'openai/gpt-live-transcribe');
 const resolveTtsModel = (requested, env) => String(requested || '').trim() && !String(requested).includes('sandbox') ? String(requested) : (env.ELEVENLABS_MODEL || 'eleven_flash_v2_5');
 
@@ -85,6 +87,9 @@ function sessionPayload(session) {
     status: session.status,
     voiceId: session.voiceId,
     agentModel: session.agentModel,
+    fastModel: session.fastModel,
+    slowModel: session.slowModel,
+    routing: session.routing,
     asrModel: session.asrModel,
     ttsModel: session.ttsModel
   };
@@ -168,9 +173,10 @@ async function createSession(request, env) {
     nbf: now - 5,
     exp: now + 600,
     video: { roomJoin: true, room, canPublish: true, canSubscribe: true, canPublishData: true },
-    roomConfig: { agents: [{ agentName: env.LIVEKIT_AGENT_ID, metadata: JSON.stringify({ scenario, direction, sessionId, traceId, language: body.language || 'zh', voiceId: body.voiceId || null, agentModel: resolveAgentModel(body.agentModel, env), asrModel: resolveAsrModel(body.asrModel, env), ttsModel: resolveTtsModel(body.ttsModel || body.model, env) }) }] }
+    roomConfig: { agents: [{ agentName: env.LIVEKIT_AGENT_ID, metadata: JSON.stringify({ scenario, direction, sessionId, traceId, language: body.language || 'zh', voiceId: body.voiceId || null, agentModel: resolveFastModel(body.fastModel || body.agentModel, env), fastModel: resolveFastModel(body.fastModel || body.agentModel, env), slowModel: resolveSlowModel(body.slowModel, env), asrModel: resolveAsrModel(body.asrModel, env), ttsModel: resolveTtsModel(body.ttsModel || body.model, env) }) }] }
   }, env.LIVEKIT_API_SECRET) : null;
-  const session = { sessionId, traceId, scenario, direction, runtimeMode, room, serverUrl: env.LIVEKIT_URL || null, token, status: direction === 'outbound' ? 'ringing' : 'dialing', voiceId: resolveVoiceId(body.voiceId, scenario, env), agentModel: resolveAgentModel(body.agentModel, env), asrModel: resolveAsrModel(body.asrModel, env), ttsModel: resolveTtsModel(body.ttsModel || body.model, env), createdAt: isoNow(), events: [] };
+  const fastModel = resolveFastModel(body.fastModel || body.agentModel, env);
+  const session = { sessionId, traceId, scenario, direction, runtimeMode, room, serverUrl: env.LIVEKIT_URL || null, token, status: direction === 'outbound' ? 'ringing' : 'dialing', voiceId: resolveVoiceId(body.voiceId, scenario, env), agentModel: fastModel, fastModel, slowModel: resolveSlowModel(body.slowModel, env), routing: 'fast_voice+slow_validation', asrModel: resolveAsrModel(body.asrModel, env), ttsModel: resolveTtsModel(body.ttsModel || body.model, env), createdAt: isoNow(), events: [] };
   sessions.set(sessionId, session);
   emit(session, 'session_created', { direction, runtimeMode, transport: session.runtimeMode === 'live' ? 'livekit-webrtc' : 'sandbox-webrtc' });
   if (runtimeMode === 'live') {

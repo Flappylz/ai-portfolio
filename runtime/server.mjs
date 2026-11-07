@@ -11,7 +11,7 @@ const port = Number(process.env.PORT || 8787);
 const defaultMode = process.env.RUNTIME_DEFAULT_MODE || 'live';
 const sessions = new Map();
 const subscribers = new Map();
-const traceEventTypes = new Set(['agent_joined', 'listening', 'speech_started', 'speech_stopped', 'partial_transcript', 'final_transcript', 'knowledge_hit', 'tool_call', 'handoff', 'tts_started', 'tts_first_byte', 'tts_text', 'speaking', 'barge_in', 'interrupted', 'metrics', 'error', 'ended']);
+const traceEventTypes = new Set(['agent_joined', 'listening', 'speech_started', 'speech_stopped', 'partial_transcript', 'final_transcript', 'knowledge_hit', 'tool_call', 'handoff', 'tts_started', 'tts_first_byte', 'tts_text', 'speaking', 'barge_in', 'interrupted', 'deep_started', 'deep_result', 'deep_result_used', 'deep_error', 'metrics', 'error', 'ended']);
 const scenarioDefaults = {
   carrier: { direction: 'inbound', voiceEnv: 'ELEVENLABS_VOICE_ID_CARRIER', fallbackVoice: 'JBFqnCBsd6RMkjVDRZzb' },
   airline: { direction: 'inbound', voiceEnv: 'ELEVENLABS_VOICE_ID_AIRLINE', fallbackVoice: '21m00Tcm4TlvDq8ikWAM' },
@@ -93,6 +93,9 @@ function sessionSummary(session) {
     language: session.language,
     voiceId: session.voiceId,
     agentModel: session.agentModel,
+    fastModel: session.fastModel,
+    slowModel: session.slowModel,
+    routing: session.routing,
     asrModel: session.asrModel,
     ttsModel: session.ttsModel,
     transport: session.transport,
@@ -109,6 +112,20 @@ function sessionSummary(session) {
 function resolveAgentModel(requested) {
   const value = String(requested || '').trim();
   return value && !value.includes('sandbox') && !value.includes('Chrome') && value.includes('/') ? value : (process.env.LIVEKIT_LLM_MODEL || 'openai/gpt-4.1-mini');
+}
+
+function resolveFastModel(requested) {
+  const value = String(requested || '').trim();
+  return value && !value.includes('sandbox') && !value.includes('Chrome') && value.includes('/')
+    ? value
+    : (process.env.LIVEKIT_FAST_LLM_MODEL || process.env.LIVEKIT_LLM_MODEL || 'openai/gpt-4.1-mini');
+}
+
+function resolveSlowModel(requested) {
+  const value = String(requested || '').trim();
+  return value && !value.includes('sandbox') && !value.includes('Chrome') && value.includes('/')
+    ? value
+    : (process.env.LIVEKIT_SLOW_LLM_MODEL || 'openai/gpt-5.6-sol');
 }
 
 function resolveAsrModel(requested) {
@@ -138,7 +155,7 @@ async function issueLiveToken(session) {
   access.roomConfig = new RoomConfiguration({
     agents: [new RoomAgentDispatch({
       agentName: process.env.LIVEKIT_AGENT_ID,
-      metadata: JSON.stringify({ scenario: session.scenario, direction: session.direction, sessionId: session.id, traceId: session.traceId, language: session.language, voiceId: session.voiceId, agentModel: session.agentModel, asrModel: session.asrModel, ttsModel: session.ttsModel })
+      metadata: JSON.stringify({ scenario: session.scenario, direction: session.direction, sessionId: session.id, traceId: session.traceId, language: session.language, voiceId: session.voiceId, agentModel: session.agentModel, fastModel: session.fastModel, slowModel: session.slowModel, asrModel: session.asrModel, ttsModel: session.ttsModel })
     })]
   });
   session.room = room;
@@ -175,7 +192,10 @@ async function createSession(payload) {
     direction,
     language: payload.language || 'zh',
     voiceId: payload.voiceId || process.env[scenarioDefaults[scenario].voiceEnv] || null,
-    agentModel: resolveAgentModel(payload.agentModel),
+    agentModel: resolveFastModel(payload.fastModel || payload.agentModel),
+    fastModel: resolveFastModel(payload.fastModel || payload.agentModel),
+    slowModel: resolveSlowModel(payload.slowModel),
+    routing: 'fast_voice+slow_validation',
     asrModel: resolveAsrModel(payload.asrModel),
     ttsModel: resolveTtsModel(payload.ttsModel || payload.model),
     runtimeMode,
@@ -185,7 +205,7 @@ async function createSession(payload) {
     status: direction === 'outbound' ? 'ringing' : 'dialing',
     createdAt: now(),
     events: [],
-    metrics: { rtt: null, jitter: null, packetLoss: null, asrMs: null, llmMs: null, ttsTtfbMs: null, e2eMs: null }
+    metrics: { rtt: null, jitter: null, packetLoss: null, asrMs: null, llmMs: null, slowLlmMs: null, ttsTtfbMs: null, e2eMs: null }
   };
   sessions.set(session.id, session);
   subscribers.set(session.id, new Set());

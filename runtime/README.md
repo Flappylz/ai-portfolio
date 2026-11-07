@@ -48,4 +48,10 @@ The proxy returns `tts_ready`, `tts_first_byte`, `audio` (base64), `tts_final`, 
 
 The server issues a short-lived LiveKit JWT in `LIVE` mode. The Agent worker is intentionally a separate process: this boundary can be deployed beside LiveKit Agents without putting a long-running worker inside the static GitHub Pages site.
 
+## Fast / slow model routing
+
+The live Agent uses two independent inference lanes. The priority **fast lane** (`LIVEKIT_FAST_LLM_MODEL`, default `openai/gpt-4.1-mini`) owns the spoken turn, preemptive generation and barge-in. A low-priority **slow lane** (`LIVEKIT_SLOW_LLM_MODEL`, default `openai/gpt-5.6-sol`) starts from partial or final transcripts when the utterance looks factual or risky. It returns a compact structured answer, intent, risk and confidence without exposing chain-of-thought. The knowledge tool consumes a pending or cached slow result when available; otherwise it falls back to the scenario demo knowledge base.
+
+The browser receives `fastModel`, `slowModel` and `routing` in the session summary. Runtime events include `deep_started`, `deep_result`, `deep_result_used`, `deep_error` and `metrics.slowLlmMs`, so the UI can distinguish a speculative hit, a verified result and a fallback. `LIVEKIT_DEEP_TIMEOUT_MS` bounds slow work (default 1800ms), while `LIVEKIT_SPECULATIVE_LOOKUP=false` disables partial-transcript prefetching without affecting the fast voice lane.
+
 When required live credentials are missing, the server returns `LIVE_CREDENTIALS_MISSING` and lists only variable names. It never returns secret values. The frontend should show an explicit `SANDBOX / SIMULATED` fallback instead of fabricating connection metrics.
