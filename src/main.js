@@ -189,7 +189,9 @@ function applyRuntimeEvent(event, source = 'runtime') {
   if (event.type === 'tts_text' || event.type === 'tts_started') state.voiceTtsText = event.text || event.transcript || state.voiceTtsText;
   if (event.transcript && event.role && event.type !== 'partial_transcript' && event.type !== 'final_transcript') state.voiceMessages.push({ role: event.role, text: event.transcript });
   if (event.insights) state.voiceInsights = { ...state.voiceInsights, ...event.insights };
+  if (event.agentModel) state.voiceAgentModel = event.agentModel;
   if (event.asrModel) state.voiceAsrModel = event.asrModel;
+  if (event.ttsModel) state.voiceModel = event.ttsModel;
   if (event.emotion) state.voiceInsights = { ...state.voiceInsights, emotion: event.emotion, confidence: event.confidence || state.voiceInsights.confidence };
   if (event.age || event.gender) state.voiceInsights = { ...state.voiceInsights, age: event.age || state.voiceInsights.age, gender: event.gender || state.voiceInsights.gender, confidence: event.confidence || state.voiceInsights.confidence };
   render(true);
