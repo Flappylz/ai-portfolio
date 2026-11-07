@@ -158,8 +158,11 @@ export default defineAgent({
       'LIVEKIT_FAST_LLM_MODEL',
     );
     const slowLlmModel = modelName(meta, 'slowModel', env('LIVEKIT_SLOW_LLM_MODEL', 'openai/gpt-5.6-sol'), 'LIVEKIT_SLOW_LLM_MODEL');
-    const deepTimeoutMs = numberEnv('LIVEKIT_DEEP_TIMEOUT_MS', 1800);
+    const deepTimeoutMs = numberEnv('LIVEKIT_DEEP_TIMEOUT_MS', 3200);
     const speculativeLookupEnabled = env('LIVEKIT_SPECULATIVE_LOOKUP', 'true') !== 'false';
+    const slowReasoningEffort = ['none', 'minimal', 'low', 'medium', 'high'].includes(env('LIVEKIT_SLOW_REASONING_EFFORT', 'low'))
+      ? env('LIVEKIT_SLOW_REASONING_EFFORT', 'low')
+      : 'low';
     const voiceId = meta.voiceId && meta.voiceId !== 'default'
       ? meta.voiceId
       : env(`ELEVENLABS_VOICE_ID_${String(meta.scenario || 'carrier').toUpperCase()}`);
@@ -213,7 +216,7 @@ export default defineAgent({
       // Speculative validation is useful, but it is never allowed to starve
       // the voice lane. LiveKit schedules this independent request as low.
       inferenceClass: env('LIVEKIT_SLOW_INFERENCE_CLASS', 'low'),
-      modelOptions: { reasoning_effort: 'medium' },
+      modelOptions: { reasoning_effort: slowReasoningEffort },
     });
     slowLlm.on('error', (event) => {
       publish('deep_error', { model: slowLlmModel, code: event?.error?.message || 'slow_llm_error' }).catch(() => {});
@@ -234,6 +237,9 @@ export default defineAgent({
     const runSlowLane = async (query, trigger = 'final') => {
       const normalized = String(query || '').trim().slice(0, 420);
       if (!shouldUseDeepLane(normalized)) return null;
+      // Partial transcripts are speculative. Keep one request in flight so a
+      // long utterance cannot fan out dozens of slow validations.
+      if (trigger === 'partial' && slowLane.pending.size > 0) return null;
       const nowMs = Date.now();
       if (slowLane.last && nowMs - slowLane.last.createdAt < 8000 && normalized.includes(slowLane.last.query.slice(0, Math.min(18, slowLane.last.query.length)))) {
         await publish('deep_result_used', { requestId: slowLane.last.requestId, source: 'cache', model: slowLane.last.model, cacheHit: true });
@@ -369,7 +375,7 @@ export default defineAgent({
       });
       if (speculativeLookupEnabled && shouldUseDeepLane(event.transcript)) {
         const nowMs = Date.now();
-        const minGap = event.isFinal ? 0 : 700;
+        const minGap = event.isFinal ? 0 : 1200;
         if (event.isFinal || nowMs - slowLane.lastSpeculativeAt >= minGap) {
           slowLane.lastSpeculativeAt = nowMs;
           runSlowLane(event.transcript, event.isFinal ? 'final' : 'partial').catch(() => {});
