@@ -158,7 +158,9 @@ export default defineAgent({
 
     const session = new voice.AgentSession({
       vad: ctx.proc.userData.vad,
-      stt: new inference.STT({ model: sttModel, language }),
+      // openai/gpt-live-transcribe accepts PCM16 at 24 kHz (or G.711 at 8 kHz).
+      // LiveKit resamples incoming browser audio to this rate before streaming.
+      stt: new inference.STT({ model: sttModel, language, sampleRate: 24000 }),
       llm: new inference.LLM({ model: llmModel }),
       tts,
       useTtsAlignedTranscript: true,
