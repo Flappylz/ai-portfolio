@@ -30,6 +30,19 @@ npm run build
 - Codex Sites：`https://fengliangze-ai-portfolio.wellsfung.chatgpt.site/`
 - Voice runtime：`https://fengliangze-ai-voice-runtime.wellsfung.chatgpt.site/`（服务端 TTS / Session API；LiveKit 凭据未配置时返回 Sandbox 降级）
 
+## 生产运行时
+
+`runtime/agent/` 是实际的 LiveKit Agents Node Worker：它使用 LiveKit 推理 STT/LLM、ElevenLabs 流式 TTS、Silero VAD、知识库查询和人工转接工具，并把 partial/final transcript、模型、状态和指标通过 LiveKit Data Track 回传给前端。
+
+```bash
+cd runtime/agent
+npm ci
+npm run check
+lk agent dev
+```
+
+生产部署需要在 LiveKit Agent Worker 和 Voice runtime 中配置同一组 `LIVEKIT_URL`、`LIVEKIT_API_KEY`、`LIVEKIT_API_SECRET`、`LIVEKIT_AGENT_ID`；ElevenLabs 使用 `ELEVENLABS_API_KEY` 和各场景 Voice ID。Worker 若配置名为 `TRACE_KV` 的 Durable KV binding，Trace 会跨 Worker isolate 保留；未配置时页面会明确显示 `worker_memory` / Sandbox 边界。
+
 ## 发布
 
 - `main` 分支保存源码、内容和检查脚本。

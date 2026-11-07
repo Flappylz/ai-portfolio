@@ -11,6 +11,7 @@ const port = Number(process.env.PORT || 8787);
 const defaultMode = process.env.RUNTIME_DEFAULT_MODE || 'live';
 const sessions = new Map();
 const subscribers = new Map();
+const traceEventTypes = new Set(['agent_joined', 'listening', 'speech_started', 'speech_stopped', 'partial_transcript', 'final_transcript', 'knowledge_hit', 'tool_call', 'handoff', 'tts_started', 'tts_first_byte', 'tts_text', 'speaking', 'barge_in', 'interrupted', 'metrics', 'error', 'ended']);
 const scenarioDefaults = {
   carrier: { direction: 'inbound', voiceEnv: 'ELEVENLABS_VOICE_ID_CARRIER', fallbackVoice: 'JBFqnCBsd6RMkjVDRZzb' },
   airline: { direction: 'inbound', voiceEnv: 'ELEVENLABS_VOICE_ID_AIRLINE', fallbackVoice: '21m00Tcm4TlvDq8ikWAM' },
@@ -91,6 +92,9 @@ function sessionSummary(session) {
     direction: session.direction,
     language: session.language,
     voiceId: session.voiceId,
+    agentModel: session.agentModel,
+    asrModel: session.asrModel,
+    ttsModel: session.ttsModel,
     transport: session.transport,
     serverUrl: process.env.LIVEKIT_URL || null,
     room: session.room,
@@ -100,6 +104,21 @@ function sessionSummary(session) {
     status: session.status,
     createdAt: session.createdAt
   };
+}
+
+function resolveAgentModel(requested) {
+  const value = String(requested || '').trim();
+  return value && !value.includes('sandbox') && !value.includes('Chrome') && value.includes('/') ? value : (process.env.LIVEKIT_LLM_MODEL || 'openai/gpt-4.1-mini');
+}
+
+function resolveAsrModel(requested) {
+  const value = String(requested || '').trim();
+  return value && !value.includes('sandbox') && !value.includes('Chrome') && value.includes('/') ? value : (process.env.LIVEKIT_STT_MODEL || 'openai/gpt-live-transcribe');
+}
+
+function resolveTtsModel(requested) {
+  const value = String(requested || '').trim();
+  return value && !value.includes('sandbox') ? value : (process.env.ELEVENLABS_MODEL || 'eleven_flash_v2_5');
 }
 
 function missingLiveConfig(scenario) {
@@ -119,7 +138,7 @@ async function issueLiveToken(session) {
   access.roomConfig = new RoomConfiguration({
     agents: [new RoomAgentDispatch({
       agentName: process.env.LIVEKIT_AGENT_ID,
-      metadata: JSON.stringify({ scenario: session.scenario, direction: session.direction, sessionId: session.id, traceId: session.traceId })
+      metadata: JSON.stringify({ scenario: session.scenario, direction: session.direction, sessionId: session.id, traceId: session.traceId, language: session.language, voiceId: session.voiceId, agentModel: session.agentModel, asrModel: session.asrModel, ttsModel: session.ttsModel })
     })]
   });
   session.room = room;
@@ -156,6 +175,9 @@ async function createSession(payload) {
     direction,
     language: payload.language || 'zh',
     voiceId: payload.voiceId || process.env[scenarioDefaults[scenario].voiceEnv] || null,
+    agentModel: resolveAgentModel(payload.agentModel),
+    asrModel: resolveAsrModel(payload.asrModel),
+    ttsModel: resolveTtsModel(payload.ttsModel || payload.model),
     runtimeMode,
     transport: runtimeMode === 'live' ? 'pending' : 'sandbox-webrtc',
     room: null,
@@ -345,11 +367,23 @@ const server = http.createServer(async (req, res) => {
       appendEvent(session, 'ended', { reason: body.reason || 'user' });
       return sendJson(res, 200, { session: sessionSummary(session) });
     }
+    if (req.method === 'POST' && url.pathname.startsWith('/api/voice/session/') && url.pathname.endsWith('/event')) {
+      const id = url.pathname.split('/')[4];
+      const session = sessions.get(id);
+      const body = await readBody(req);
+      if (!session) return sendJson(res, 404, { error: 'SESSION_NOT_FOUND' });
+      if (!body || body.traceId !== session.traceId || !traceEventTypes.has(body.type)) return sendJson(res, 400, { error: 'INVALID_TRACE_EVENT' });
+      const data = { ...body };
+      delete data.type; delete data.traceId; delete data.sessionId;
+      if (JSON.stringify(data).length > 12000) return sendJson(res, 413, { error: 'TRACE_EVENT_TOO_LARGE' });
+      appendEvent(session, body.type, data);
+      return sendJson(res, 202, { ok: true, event: session.events.at(-1) });
+    }
     if (req.method === 'GET' && url.pathname.startsWith('/api/voice/session/') && url.pathname.endsWith('/trace')) {
       const id = url.pathname.split('/')[4];
       const session = sessions.get(id);
       if (!session) return sendJson(res, 404, { error: 'SESSION_NOT_FOUND' });
-      return sendJson(res, 200, { ...sessionSummary(session), metrics: session.metrics, events: session.events });
+      return sendJson(res, 200, { ...sessionSummary(session), metrics: session.metrics, events: session.events, persistence: 'server_memory', warning: 'Use the Worker TRACE_KV binding or an external store for durable production traces.' });
     }
     if (req.method === 'POST' && url.pathname === '/api/voice/tts') return proxyTtsHttp(await readBody(req), res);
     sendJson(res, 404, { error: 'NOT_FOUND' });

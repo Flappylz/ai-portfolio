@@ -1,0 +1,17 @@
+{
+  "name": "fengliangze-voice-agent",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "check": "node --check agent.mjs",
+    "dev": "lk agent dev",
+    "start": "node agent.mjs start"
+  },
+  "dependencies": {
+    "@livekit/agents": "1.9.5",
+    "@livekit/agents-plugin-elevenlabs": "1.9.5",
+    "@livekit/agents-plugin-openai": "1.9.5",
+    "@livekit/agents-plugin-silero": "1.9.5"
+  }
+}

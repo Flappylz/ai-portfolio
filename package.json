@@ -11,7 +11,9 @@
     "check": "node scripts/check-site.mjs",
     "runtime": "node runtime/server.mjs",
     "runtime:check": "node runtime/check.mjs",
-    "runtime:openai-check": "node runtime/openai-check.mjs"
+    "runtime:openai-check": "node runtime/openai-check.mjs",
+    "agent:check": "node --check runtime/agent/agent.mjs && node -e \"import('./runtime/agent/agent.mjs').then(() => console.log('LiveKit agent module check passed'))\"",
+    "worker:check": "node runtime/worker/check.mjs"
   },
   "dependencies": {
     "livekit-client": "^2.23.0",

@@ -67,6 +67,7 @@ try {
     body: JSON.stringify({ scenario: 'carrier', runtimeMode: 'sandbox', language: 'zh' })
   })).json();
   if (!created.session?.sessionId || created.session.direction !== 'inbound') throw new Error('sandbox session failed');
+  if (created.session.agentModel !== 'openai/gpt-4.1-mini' || created.session.asrModel !== 'openai/gpt-live-transcribe' || created.session.ttsModel !== 'eleven_flash_v2_5') throw new Error('model resolution failed');
 
   const events = [];
   const ws = new WebSocket(`ws://127.0.0.1:${port}/api/voice/events?sessionId=${created.session.sessionId}`);
@@ -81,6 +82,7 @@ try {
 
   const trace = await (await fetch(`http://127.0.0.1:${port}/api/voice/session/${created.session.sessionId}/trace`)).json();
   if (!Array.isArray(trace.events) || !trace.events.every((event) => event.traceId === created.session.traceId)) throw new Error('trace ids are inconsistent');
+  if (!['server_memory', 'worker_memory', 'durable_kv'].includes(trace.persistence)) throw new Error('trace persistence state missing');
 
   const outbound = await (await fetch(`http://127.0.0.1:${port}/api/voice/session`, {
     method: 'POST', headers: { 'content-type': 'application/json' },

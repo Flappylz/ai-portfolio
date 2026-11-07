@@ -147,8 +147,16 @@ function base64ToBytes(value) {
   const binary = atob(value);
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
-function applyRuntimeEvent(event) {
+function postRoomTraceEvent(event) {
+  if (!voiceRuntimeUrl() || state.runtimeMode !== 'live' || !state.voiceSession?.sessionId || !event?.type) return;
+  fetch(voiceRuntimeEndpoint('/api/voice/session/' + encodeURIComponent(state.voiceSession.sessionId) + '/event'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...event, traceId: state.voiceSession.traceId, sessionId: state.voiceSession.sessionId })
+  }).catch(() => {});
+}
+function applyRuntimeEvent(event, source = 'runtime') {
   if (!event || typeof event !== 'object') return;
+  if (source === 'room') postRoomTraceEvent(event);
   const labels = {
     session_created: 'session created', token_issued: 'short-lived token issued', ice_checking: 'ICE checking',
     room_joined: 'LiveKit room joined', agent_joined: 'agent joined', audio_track_ready: 'audio track ready',
@@ -191,7 +199,7 @@ function subscribeRuntimeEvents(sessionId) {
   if (state.voiceEventSocket) state.voiceEventSocket.close();
   const socket = new WebSocket(voiceRuntimeSocket('/api/voice/events?sessionId=' + encodeURIComponent(sessionId)));
   state.voiceEventSocket = socket;
-  socket.addEventListener('message', (event) => { try { applyRuntimeEvent(JSON.parse(event.data)); } catch {} });
+  socket.addEventListener('message', (event) => { try { applyRuntimeEvent(JSON.parse(event.data), 'runtime'); } catch {} });
   socket.addEventListener('error', () => voiceLog('event stream unavailable', 'orange'));
 }
 async function connectLiveKit(session) {
@@ -216,7 +224,7 @@ async function connectLiveKit(session) {
     }
   });
   room.on(RoomEvent.DataReceived, (payload) => {
-    try { applyRuntimeEvent(JSON.parse(new TextDecoder().decode(payload))); } catch {}
+    try { applyRuntimeEvent(JSON.parse(new TextDecoder().decode(payload)), 'room'); } catch {}
   });
   await room.connect(session.serverUrl, session.token);
   const localTrack = await createLocalAudioTrack({ echoCancellation: true, noiseSuppression: true, autoGainControl: true });
@@ -264,12 +272,17 @@ async function createRuntimeSession(mode) {
   const scenario = activeVoiceScenario();
   const response = await fetch(voiceRuntimeEndpoint('/api/voice/session'), {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scenario: scenario.id, direction: scenario.direction, language: state.voiceLanguage, voiceId: state.voiceVoice, agentModel: state.voiceAgentModel, asrModel: state.voiceAsrModel, runtimeMode: mode })
+    body: JSON.stringify({ scenario: scenario.id, direction: scenario.direction, language: state.voiceLanguage, voiceId: state.voiceVoice, agentModel: state.voiceAgentModel, asrModel: state.voiceAsrModel, ttsModel: state.voiceModel, runtimeMode: mode })
   });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error || 'SESSION_HTTP_' + response.status);
   state.voiceSession = payload.session || payload;
   state.runtimeMode = state.voiceSession.runtimeMode || mode;
+  if (state.runtimeMode === 'live') {
+    if (state.voiceSession.agentModel) state.voiceAgentModel = state.voiceSession.agentModel;
+    if (state.voiceSession.asrModel) state.voiceAsrModel = state.voiceSession.asrModel;
+    if (state.voiceSession.ttsModel) state.voiceModel = state.voiceSession.ttsModel;
+  }
   state.voiceApiState = state.runtimeMode === 'live' ? 'live session' : 'sandbox / simulated';
   subscribeRuntimeEvents(state.voiceSession.sessionId);
   return state.voiceSession;
