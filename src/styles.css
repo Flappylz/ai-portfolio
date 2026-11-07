@@ -467,9 +467,9 @@ em { color: var(--cyan); font-style: normal; }
   .voice-stage .caller-orb { width: 178px; height: 178px; margin: 22px auto 14px; }
   .voice-stage .call-wave { margin-bottom: 10px; transform: scale(1); }
   .voice-stage > strong { font-size: 18px; }
-  .voice-stage .call-actions { padding-top: 10px; padding-bottom: 2px; gap: 8px; }
+  .voice-stage .call-actions { margin-top: 0; padding-top: 10px; padding-bottom: 2px; gap: 8px; }
   .voice-stage .call-action { width: 52px; height: 52px; min-width: 52px; }
   .voice-stage .call-action.answer, .voice-stage .call-action.voice-input { width: 68px; height: 68px; min-width: 68px; }
-  .voice-stage .voice-transcript { max-height: 130px; margin-top: 8px; }
-  .voice-stage .subtitle-hidden { margin-top: 8px; }
+  .voice-stage .voice-transcript { min-height: 0; max-height: 130px; margin-top: 8px; }
+  .voice-stage .subtitle-hidden { min-height: 0; height: auto; margin-top: 8px; }
 }
