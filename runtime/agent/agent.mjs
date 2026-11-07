@@ -93,7 +93,10 @@ function createHandoffTool(publish) {
 export default defineAgent({
   prewarm: async (proc) => {
     proc.userData.vad = await silero.VAD.load({
-      minSilenceDuration: numberEnv('VOICE_VAD_MIN_SILENCE_MS', 420) / 1000,
+      // LiveKit's Silero adapter expects this value in milliseconds. Keeping
+      // the unit explicit prevents a sub-millisecond VAD that the turn
+      // detector rejects during a real room session.
+      minSilenceDuration: numberEnv('VOICE_VAD_MIN_SILENCE_MS', 420),
     });
   },
   entry: async (ctx) => {
