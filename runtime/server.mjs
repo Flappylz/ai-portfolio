@@ -242,7 +242,8 @@ function proxyTtsUpgrade(req, socket, head) {
       use_speaker_boost: true
     };
     upstream.once('open', () => {
-      upstream.send(JSON.stringify({ text: ' ', voice_settings: voiceSettings, generation_config: { chunk_length_schedule: [50, 120, 160, 290] } }));
+      const schedule = (url.searchParams.get('chunkSchedule') || '50,120,160,290').split(',').map((item) => Number(item.trim())).filter((item) => Number.isFinite(item) && item > 0).slice(0, 8);
+      upstream.send(JSON.stringify({ text: ' ', voice_settings: voiceSettings, generation_config: { chunk_length_schedule: schedule.length ? schedule : [50, 120, 160, 290] } }));
       send({ type: 'tts_ready', voiceId, modelId, outputFormat });
     });
     upstream.on('message', (raw) => {

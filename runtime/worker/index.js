@@ -201,7 +201,8 @@ async function ttsSocket(request, env) {
     speed: Number(url.searchParams.get('speed') || 1),
     use_speaker_boost: true
   };
-  const generationConfig = { chunk_length_schedule: [50, 120, 160, 290] };
+  const schedule = (url.searchParams.get('chunkSchedule') || '50,120,160,290').split(',').map((item) => Number(item.trim())).filter((item) => Number.isFinite(item) && item > 0).slice(0, 8);
+  const generationConfig = { chunk_length_schedule: schedule.length ? schedule : [50, 120, 160, 290] };
   try { upstream.webSocket.send(JSON.stringify({ text: ' ', voice_settings: voiceSettings, generation_config: generationConfig })); } catch {}
   send({ type: 'tts_ready', voiceId, modelId: upstreamUrl.searchParams.get('model_id'), outputFormat: upstreamUrl.searchParams.get('output_format') });
   browser.addEventListener('message', (event) => {
