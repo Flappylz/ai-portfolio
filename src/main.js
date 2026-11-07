@@ -412,6 +412,23 @@ function bindVoiceEvents() {
         render();
       }
     } catch (error) {
+      // The public Worker is edge distributed. If an outbound answer request
+      // lands on a different instance before Durable KV is enabled, the
+      // in-memory session lookup may return SESSION_NOT_FOUND. The LiveKit
+      // token returned at ring time is still valid, so connect with that
+      // already-issued session instead of silently downgrading the call.
+      if (state.voiceSession?.runtimeMode === 'live' && state.voiceSession?.token) {
+        try {
+          await connectLiveKit(state.voiceSession);
+          state.voiceCallStatus = 'connected';
+          state.voiceStatus = 'connected';
+          voiceLog('outbound answer connected with issued LiveKit token', 'lime');
+          render();
+          return;
+        } catch (liveError) {
+          voiceLog('outbound LiveKit answer failed: ' + liveError.message, 'orange');
+        }
+      }
       state.runtimeMode = 'sandbox';
       state.voiceApiState = 'sandbox / simulated';
       voiceLog('answer fallback: ' + error.message, 'orange');
