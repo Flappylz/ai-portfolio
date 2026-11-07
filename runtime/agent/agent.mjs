@@ -188,12 +188,29 @@ export default defineAgent({
     session.on(voice.AgentSessionEventTypes.ConversationItemAdded, (event) => {
       const item = event.item;
       if (item?.type === 'message') {
-        const text = Array.isArray(item.content) ? item.content.filter((part) => typeof part === 'string').join(' ') : '';
+        const text = Array.isArray(item.content)
+          ? item.content.map((part) => typeof part === 'string' ? part : part?.text || '').filter(Boolean).join(' ')
+          : typeof item.content === 'string' ? item.content : '';
         if (text) publish(item.role === 'assistant' ? 'tts_text' : 'final_transcript', { text, transcript: text, role: item.role });
       }
     });
     session.on(voice.AgentSessionEventTypes.MetricsCollected, (event) => {
-      publish('metrics', { metrics: event.metrics });
+      const metric = event.metrics || {};
+      if (metric.type === 'tts_metrics') {
+        publish('tts_first_byte', {
+          ttfbMs: metric.ttfbMs,
+          durationMs: metric.durationMs,
+          provider: elevenLabsKey ? 'elevenlabs' : 'livekit_inference',
+          model: tts.model,
+        });
+        publish('metrics', { metrics: { ttsTtfbMs: metric.ttfbMs, e2eMs: metric.durationMs } });
+      } else if (metric.type === 'stt_metrics') {
+        publish('metrics', { metrics: { asrMs: metric.durationMs, asrAudioMs: metric.audioDurationMs } });
+      } else if (metric.type === 'llm_metrics') {
+        publish('metrics', { metrics: { llmMs: metric.durationMs, llmTtftMs: metric.ttftMs } });
+      } else {
+        publish('metrics', { metrics: metric });
+      }
     });
     session.on(voice.AgentSessionEventTypes.Error, (event) => {
       publish('error', { code: event.error?.message || 'agent_error' });
