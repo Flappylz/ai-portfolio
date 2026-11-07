@@ -105,6 +105,7 @@ export default defineAgent({
     const voiceId = meta.voiceId && meta.voiceId !== 'default'
       ? meta.voiceId
       : env(`ELEVENLABS_VOICE_ID_${String(meta.scenario || 'carrier').toUpperCase()}`);
+    const elevenLabsKey = env('ELEVENLABS_API_KEY', env('ELEVEN_API_KEY'));
     const traceId = meta.traceId || `agent_${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`;
     const publish = async (type, data = {}) => {
       const event = { type, traceId, sessionId: meta.sessionId || null, scenario: meta.scenario || 'carrier', ts: new Date().toISOString(), ...data };
@@ -129,12 +130,9 @@ export default defineAgent({
       useTtsAlignedTranscript: true,
     });
 
-    const session = new voice.AgentSession({
-      vad: ctx.proc.userData.vad,
-      stt: new inference.STT({ model: sttModel, language }),
-      llm: new inference.LLM({ model: llmModel }),
-      tts: new elevenlabs.TTS({
-        apiKey: env('ELEVENLABS_API_KEY', env('ELEVEN_API_KEY')),
+    const tts = elevenLabsKey
+      ? new elevenlabs.TTS({
+        apiKey: elevenLabsKey,
         voiceId: voiceId || undefined,
         model: env('ELEVENLABS_MODEL', 'eleven_flash_v2_5'),
         language,
@@ -147,7 +145,19 @@ export default defineAgent({
         },
         chunkLengthSchedule: [50, 120, 160, 290],
         syncAlignment: true,
-      }),
+      })
+      : new inference.TTS({
+        model: env('LIVEKIT_TTS_MODEL', 'cartesia/sonic-3'),
+        voice: env('LIVEKIT_TTS_VOICE') || undefined,
+        language,
+        modelOptions: { speed: numberEnv('LIVEKIT_TTS_SPEED', 1) },
+      });
+
+    const session = new voice.AgentSession({
+      vad: ctx.proc.userData.vad,
+      stt: new inference.STT({ model: sttModel, language }),
+      llm: new inference.LLM({ model: llmModel }),
+      tts,
       useTtsAlignedTranscript: true,
       turnHandling: {
         preemptiveGeneration: { enabled: true },
@@ -189,7 +199,7 @@ export default defineAgent({
 
     await session.start({ agent, room: ctx.room, record: { audio: false, traces: true, logs: true, transcript: true, redaction: true } });
     await ctx.connect();
-    await publish('agent_joined', { agentModel: llmModel, asrModel: sttModel, ttsModel: env('ELEVENLABS_MODEL', 'eleven_flash_v2_5') });
+    await publish('agent_joined', { agentModel: llmModel, asrModel: sttModel, ttsModel: tts.model, ttsProvider: elevenLabsKey ? 'elevenlabs' : 'livekit_inference' });
     await session.generateReply({ instructions: scenario.greeting, inputModality: 'text' });
   },
 });
