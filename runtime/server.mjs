@@ -11,7 +11,7 @@ const port = Number(process.env.PORT || 8787);
 const defaultMode = process.env.RUNTIME_DEFAULT_MODE || 'live';
 const sessions = new Map();
 const subscribers = new Map();
-const traceEventTypes = new Set(['agent_joined', 'listening', 'speech_started', 'speech_stopped', 'partial_transcript', 'final_transcript', 'knowledge_hit', 'tool_call', 'handoff', 'tts_started', 'tts_first_byte', 'tts_text', 'speaking', 'barge_in', 'interrupted', 'deep_started', 'deep_result', 'deep_result_used', 'deep_error', 'metrics', 'error', 'ended']);
+const traceEventTypes = new Set(['agent_joined', 'listening', 'speech_started', 'speech_stopped', 'partial_transcript', 'final_transcript', 'knowledge_hit', 'tool_call', 'handoff', 'tts_started', 'tts_first_byte', 'tts_text_delta', 'tts_text', 'speaking', 'barge_in', 'interrupted', 'deep_started', 'deep_result', 'deep_result_used', 'deep_error', 'metrics', 'error', 'ended']);
 const scenarioDefaults = {
   carrier: { direction: 'inbound', voiceEnv: 'ELEVENLABS_VOICE_ID_CARRIER', fallbackVoice: 'JBFqnCBsd6RMkjVDRZzb' },
   airline: { direction: 'inbound', voiceEnv: 'ELEVENLABS_VOICE_ID_AIRLINE', fallbackVoice: '21m00Tcm4TlvDq8ikWAM' },

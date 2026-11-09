@@ -14,7 +14,7 @@ const SESSION_TTL_MS = 15 * 60 * 1000;
 const REQUEST_WINDOW_MS = 60 * 1000;
 const REQUEST_LIMIT = 12;
 const requestWindows = new Map();
-const TRACE_EVENT_TYPES = new Set(['agent_joined', 'listening', 'speech_started', 'speech_stopped', 'partial_transcript', 'final_transcript', 'knowledge_hit', 'tool_call', 'handoff', 'tts_started', 'tts_first_byte', 'tts_text', 'speaking', 'barge_in', 'interrupted', 'deep_started', 'deep_result', 'deep_result_used', 'deep_error', 'metrics', 'error', 'ended']);
+const TRACE_EVENT_TYPES = new Set(['agent_joined', 'listening', 'speech_started', 'speech_stopped', 'partial_transcript', 'final_transcript', 'knowledge_hit', 'tool_call', 'handoff', 'tts_started', 'tts_first_byte', 'tts_text_delta', 'tts_text', 'speaking', 'barge_in', 'interrupted', 'deep_started', 'deep_result', 'deep_result_used', 'deep_error', 'metrics', 'error', 'ended']);
 const resolveAgentModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_LLM_MODEL || 'openai/gpt-4.1-mini');
 const resolveFastModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_FAST_LLM_MODEL || env.LIVEKIT_LLM_MODEL || 'openai/gpt-4.1-mini');
 const resolveSlowModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_SLOW_LLM_MODEL || 'openai/gpt-5.6-sol');

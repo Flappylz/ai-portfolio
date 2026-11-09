@@ -44,7 +44,7 @@ TTS client messages are JSON frames:
 {"type":"end"}
 ```
 
-The proxy returns `tts_ready`, `tts_first_byte`, `audio` (base64), `tts_final`, `tts_closed`, and safe error codes. Audio chunks are forwarded without decoding or persisting them.
+The proxy returns `tts_ready`, `tts_first_byte`, `audio` (base64), `tts_final`, `tts_closed`, and safe error codes. Audio chunks are forwarded without decoding or persisting them. The Agent publishes `tts_text_delta` while aligned TTS text is being synthesized so the browser can render spoken subtitles before the turn is committed.
 
 The server issues a short-lived LiveKit JWT in `LIVE` mode. The Agent worker is intentionally a separate process: this boundary can be deployed beside LiveKit Agents without putting a long-running worker inside the static GitHub Pages site.
 

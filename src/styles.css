@@ -254,6 +254,8 @@ em { color: var(--cyan); font-style: normal; }
 .call-controls { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; color: var(--quiet); font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; }.call-controls button { padding: 6px 8px; border: 1px solid var(--line); color: var(--quiet); background: transparent; cursor: pointer; font: inherit; }.call-controls button:hover { border-color: var(--orange); color: var(--orange); }
 @keyframes voicePulse { from { transform: scaleY(.55); opacity: .4; } to { transform: scaleY(1.12); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .call-wave i { animation: none; } }
+.call-wave i { animation: none !important; transition: height .08s linear, opacity .08s linear; transform-origin: center; }
+.call-wave.sound-active i { box-shadow: 0 0 10px currentColor; }
 
 /* Delivery Voice Agent console */
 .voice-screen { min-height: calc(100svh - 76px); padding-top: 18px; padding-bottom: 24px; }

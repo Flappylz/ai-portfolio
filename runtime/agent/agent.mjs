@@ -137,6 +137,45 @@ function createHandoffTool(publish) {
   });
 }
 
+class StreamingTranscriptAgent extends voice.Agent {
+  constructor(options, publish) {
+    super(options);
+    this.publishVoiceEvent = publish;
+  }
+
+  async transcriptionNode(text, modelSettings) {
+    const stream = await super.transcriptionNode(text, modelSettings);
+    if (!stream) return stream;
+    const publish = this.publishVoiceEvent;
+    return new ReadableStream({
+      async start(controller) {
+        let transcript = '';
+        try {
+          for await (const chunk of stream) {
+            const piece = typeof chunk === 'string' ? chunk : chunk?.text || '';
+            if (piece) {
+              transcript += piece;
+              void publish('tts_text_delta', {
+                text: piece,
+                transcript,
+                role: 'assistant',
+                source: 'tts_aligned_transcript',
+              });
+            }
+            controller.enqueue(chunk);
+          }
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+      cancel(reason) {
+        return stream.cancel?.(reason);
+      },
+    });
+  }
+}
+
 export default defineAgent({
   prewarm: async (proc) => {
     proc.userData.vad = await silero.VAD.load({
@@ -198,11 +237,11 @@ export default defineAgent({
       lastSpeculativeAt: 0,
     };
 
-    const agent = new voice.Agent({
+    const agent = new StreamingTranscriptAgent({
       instructions: baseInstructions,
       tools: [createKnowledgeTool(meta.scenario, publish, slowLane), createHandoffTool(publish)],
       useTtsAlignedTranscript: true,
-    });
+    }, publish);
 
     const fastLlm = new inference.LLM({
       model: fastLlmModel,

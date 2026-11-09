@@ -6,7 +6,7 @@ const app = document.querySelector('#app');
 const githubUrl = 'https://github.com/Flappylz';
 const email = '760871196@qq.com';
 
-const state = { modeId: 'discovery', status: 'draft', score: 0, input: '', response: '', deliveryChecks: [], deliverySummary: '', voiceScenario: 'carrier', voiceInput: '', voiceStatus: 'sandbox', voiceCallStatus: 'idle', voiceMuted: false, voiceSubtitleVisible: false, voiceStep: 0, voiceMessages: [], voiceLogs: [], voiceRound: 0, voiceLanguage: 'zh', voiceVoice: 'default', voiceModel: 'eleven_flash_v2_5', voiceAgentModel: 'openai/gpt-4.1-mini', voiceFastModel: 'openai/gpt-4.1-mini', voiceSlowModel: 'openai/gpt-5.6-sol', voiceSlowStatus: 'idle', voiceQualityPath: 'fast voice → slow validation', voiceAsrModel: 'Web Speech API / Chrome sandbox', voiceTone: 'neutral', voicePitch: 1, voiceEmotion: 'neutral', voiceStability: 0.5, voiceSimilarity: 0.75, voiceStyle: 0.2, voiceSpeed: 1, voiceOutputFormat: 'mp3_44100_128', voiceChunkSchedule: '50,120,160,290', voiceBargeIn: 'server_vad', voicePartial: '', voiceTtsText: '', voiceInsights: { emotion: '待识别', age: '待识别', gender: '待识别', confidence: null }, runtimeMode: 'sandbox', voiceApiState: 'sandbox / simulated', voiceLatency: { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null }, voiceMetrics: { rtt: null, jitter: null, packetLoss: null, interrupt: null }, voiceSession: null, voiceRoom: null, voiceLocalTrack: null, voiceEventSocket: null, voiceTtsSocket: null, voiceAudio: null, voiceStatsTimer: null, voiceOutboundInit: false, events: [
+const state = { modeId: 'discovery', status: 'draft', score: 0, input: '', response: '', deliveryChecks: [], deliverySummary: '', voiceScenario: 'carrier', voiceInput: '', voiceStatus: 'sandbox', voiceCallStatus: 'idle', voiceMuted: false, voiceSubtitleVisible: true, voiceStep: 0, voiceMessages: [], voiceLogs: [], voiceRound: 0, voiceLanguage: 'zh', voiceVoice: 'default', voiceModel: 'eleven_flash_v2_5', voiceAgentModel: 'openai/gpt-4.1-mini', voiceFastModel: 'openai/gpt-4.1-mini', voiceSlowModel: 'openai/gpt-5.6-sol', voiceSlowStatus: 'idle', voiceQualityPath: 'fast voice → slow validation', voiceAsrModel: 'Web Speech API / Chrome sandbox', voiceTone: 'neutral', voicePitch: 1, voiceEmotion: 'neutral', voiceStability: 0.5, voiceSimilarity: 0.75, voiceStyle: 0.2, voiceSpeed: 1, voiceOutputFormat: 'mp3_44100_128', voiceChunkSchedule: '50,120,160,290', voiceBargeIn: 'server_vad', voicePartial: '', voiceTtsText: '', voiceTtsPartial: '', voiceAmplitude: 0, voiceAudioContext: null, voiceAnalyserSources: [], voiceWaveFrame: null, voiceInsights: { emotion: '待识别', age: '待识别', gender: '待识别', confidence: null }, runtimeMode: 'sandbox', voiceApiState: 'sandbox / simulated', voiceLatency: { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null }, voiceMetrics: { rtt: null, jitter: null, packetLoss: null, interrupt: null }, voiceSession: null, voiceRoom: null, voiceLocalTrack: null, voiceEventSocket: null, voiceTtsSocket: null, voiceAudio: null, voiceStatsTimer: null, voiceOutboundInit: false, events: [
   { time: '09:41:03', label: 'workspace initialized', tone: 'quiet' },
   { time: '09:41:11', label: 'agent schema loaded', tone: 'cyan' }
 ] };
@@ -46,13 +46,96 @@ function appsView() {
   return shell('<section class="page-intro section-pad app-page-intro"><span class="section-label">VOICE APPLICATIONS / 3 LIVE CALLS</span><h1>选择一个场景，开始通话。</h1><p>这三个入口都是具体业务 Demo，进入后默认使用语音交互。</p></section>' + appLauncher());
 }
 function activeVoiceScenario() { return voiceScenarios.find((item) => item.id === state.voiceScenario) || voiceScenarios[0]; }
+function stopVoiceAnalyser() {
+  if (state.voiceWaveFrame) window.cancelAnimationFrame(state.voiceWaveFrame);
+  state.voiceWaveFrame = null;
+  state.voiceAnalyserSources.forEach((item) => {
+    try { item.source.disconnect(); } catch {}
+    try { item.sink?.disconnect(); } catch {}
+  });
+  state.voiceAnalyserSources = [];
+  if (state.voiceAudioContext) state.voiceAudioContext.close().catch(() => {});
+  state.voiceAudioContext = null;
+  state.voiceAmplitude = 0;
+}
+function ensureVoiceAudioContext() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return null;
+  if (!state.voiceAudioContext) state.voiceAudioContext = new AudioContextClass();
+  if (state.voiceAudioContext.state === 'suspended') state.voiceAudioContext.resume().catch(() => {});
+  return state.voiceAudioContext;
+}
+function updateVoiceWaveform() {
+  const wave = document.querySelector('.call-wave');
+  if (!wave) return;
+  const bars = [...wave.querySelectorAll('i')];
+  const samples = state.voiceAnalyserSources;
+  let amplitude = 0;
+  for (const item of samples) {
+    item.analyser.getByteTimeDomainData(item.data);
+    let sum = 0;
+    for (const value of item.data) {
+      const normalized = (value - 128) / 128;
+      sum += normalized * normalized;
+    }
+    amplitude = Math.max(amplitude, Math.sqrt(sum / item.data.length));
+  }
+  const smoothed = state.voiceAmplitude * 0.72 + amplitude * 0.28;
+  state.voiceAmplitude = smoothed;
+  const active = smoothed > 0.018;
+  wave.classList.toggle('sound-active', active);
+  const pattern = [0.72, 1, 0.66, 0.9, 1.1, 0.78, 0.98, 0.62, 0.86];
+  bars.forEach((bar, index) => {
+    const level = active ? Math.min(1, smoothed * 5.6 * pattern[index % pattern.length]) : 0;
+    bar.style.height = `${Math.round(6 + level * 30)}px`;
+    bar.style.opacity = String(active ? 0.56 + level * 0.44 : 0.24);
+  });
+  state.voiceWaveFrame = window.requestAnimationFrame(updateVoiceWaveform);
+}
+function addVoiceAnalyserForTrack(track) {
+  if (!track?.mediaStreamTrack) return;
+  const context = ensureVoiceAudioContext();
+  if (!context) return;
+  const analyser = context.createAnalyser();
+  analyser.fftSize = 256;
+  analyser.smoothingTimeConstant = 0.74;
+  const source = context.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
+  const sink = context.createGain();
+  sink.gain.value = 0;
+  source.connect(analyser);
+  analyser.connect(sink);
+  sink.connect(context.destination);
+  state.voiceAnalyserSources.push({ source, analyser, sink, data: new Uint8Array(analyser.fftSize) });
+  if (!state.voiceWaveFrame) state.voiceWaveFrame = window.requestAnimationFrame(updateVoiceWaveform);
+}
+function addVoiceAnalyserForElement(element) {
+  if (!element) return;
+  const context = ensureVoiceAudioContext();
+  if (!context) return;
+  try {
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.74;
+    const source = context.createMediaElementSource(element);
+    const sink = context.createGain();
+    sink.gain.value = 0;
+    source.connect(analyser);
+    analyser.connect(sink);
+    sink.connect(context.destination);
+    state.voiceAnalyserSources.push({ source, analyser, sink, data: new Uint8Array(analyser.fftSize) });
+    if (!state.voiceWaveFrame) state.voiceWaveFrame = window.requestAnimationFrame(updateVoiceWaveform);
+  } catch {
+    // A media element can only be connected to one AudioContext source.
+  }
+}
 function resetVoiceState(id) {
   const next = voiceScenarios.find((item) => item.id === id) || voiceScenarios[0];
   if (state.voiceScenario === id && (state.voiceMessages.length || state.voiceLogs.length)) return;
   if (state.voiceRoom) state.voiceRoom.disconnect();
+  stopVoiceAnalyser();
   if (state.voiceEventSocket) state.voiceEventSocket.close();
   if (state.voiceStatsTimer) window.clearInterval(state.voiceStatsTimer);
-  state.voiceScenario = id; state.voiceInput = ''; state.voiceStatus = next.direction === 'outbound' ? 'ringing' : 'idle'; state.voiceCallStatus = next.direction === 'outbound' ? 'ringing' : 'idle'; state.voiceStep = 0; state.voiceMessages = []; state.voiceLogs = []; state.voiceRound = 0; state.voiceApiState = 'sandbox / simulated'; state.voicePartial = ''; state.voiceTtsText = ''; state.voiceInsights = { emotion: '待识别', age: '待识别', gender: '待识别', confidence: null }; state.voiceLatency = { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null }; state.voiceMetrics = { rtt: null, jitter: null, packetLoss: null, interrupt: null }; state.voiceSlowStatus = 'idle'; state.voiceQualityPath = 'fast voice → slow validation'; state.voiceSession = null; state.voiceRoom = null; state.voiceEventSocket = null; state.voiceStatsTimer = null; state.voiceOutboundInit = false;
+  state.voiceScenario = id; state.voiceInput = ''; state.voiceStatus = next.direction === 'outbound' ? 'ringing' : 'idle'; state.voiceCallStatus = next.direction === 'outbound' ? 'ringing' : 'idle'; state.voiceStep = 0; state.voiceMessages = []; state.voiceLogs = []; state.voiceRound = 0; state.voiceApiState = 'sandbox / simulated'; state.voicePartial = ''; state.voiceTtsText = ''; state.voiceTtsPartial = ''; state.voiceInsights = { emotion: '待识别', age: '待识别', gender: '待识别', confidence: null }; state.voiceLatency = { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null }; state.voiceMetrics = { rtt: null, jitter: null, packetLoss: null, interrupt: null }; state.voiceSlowStatus = 'idle'; state.voiceQualityPath = 'fast voice → slow validation'; state.voiceSession = null; state.voiceRoom = null; state.voiceEventSocket = null; state.voiceStatsTimer = null; state.voiceOutboundInit = false;
 }
 function voiceScenarioView(id) {
   resetVoiceState(id);
@@ -66,7 +149,7 @@ function voiceScenarioView(id) {
   const insightCards = [['情绪', state.voiceInsights.emotion, 'emotion'], ['年龄', state.voiceInsights.age, 'age'], ['性别', state.voiceInsights.gender, 'gender']].map((item) => '<div class="insight-card"><span>' + item[0] + '</span><b>' + esc(item[1]) + '</b><small>' + (state.voiceInsights.confidence ? state.voiceInsights.confidence + '% confidence' : 'SANDBOX / DEMO') + '</small></div>').join('');
   const architecture = ['浏览器麦克风 / 文本', 'LiveKit WebRTC 房间', 'ASR + VAD + Agent 状态机', '快模型即时应答', '慢模型并行核验', '知识库 / 工具调用', 'ElevenLabs 流式 TTS', '字幕、指标与 Trace'];
   const detailPages = '<section class="voice-detail-pages" id="voice-details"><article class="voice-detail-page"><div><span class="section-label">SYSTEM ARCHITECTURE / ' + scenario.title + '</span><h2>从通话到可交付的实时链路。</h2><p>下滑查看当前 Demo 的完整链路。首屏负责体验，下面负责证明系统如何工作。</p></div><div class="detail-flow">' + architecture.map((item, index) => '<div><b>0' + (index + 1) + '</b><span>' + item + '</span></div>').join('<i>→</i>') + '</div><div class="detail-evidence-grid"><div><span>AGENT</span><b>' + esc(state.voiceAgentModel) + '</b><small>当前对话模型</small></div><div><span>ASR</span><b>' + esc(state.voiceAsrModel) + '</b><small>当前转写模型</small></div><div><span>TTS</span><b>' + esc(state.voiceModel) + '</b><small>ElevenLabs 流式模型</small></div><div><span>TRANSPORT</span><b>LiveKit WebRTC</b><small>WebSocket TTS fallback</small></div><div><span>STATUS</span><b>' + state.voiceCallStatus.toUpperCase() + '</b><small>' + state.runtimeMode.toUpperCase() + '</small></div><div><span>TRACE</span><b>' + esc(state.voiceSession?.traceId || sessionLabel) + '</b><small>事件可追溯</small></div></div></article><article class="voice-detail-page"><div><span class="section-label">KNOWLEDGE + BUSINESS FLOW</span><h2>业务流程和知识命中放在同一页。</h2></div><div class="detail-two-col"><div><h3>业务流程</h3><ol class="business-flow">' + scenario.workflow.map((item, index) => '<li><b>0' + (index + 1) + '</b><span>' + item + '</span></li>').join('') + '</ol></div><div><h3>知识库</h3><ul class="detail-knowledge">' + knowledge + '</ul></div></div><div class="detail-boundary"><span>BOUNDARY</span><p>公开数据为模拟场景；真实票价、套餐、库存、客户资料和生产权限不会进入前端。失败时保留已确认信息，并进入文本降级或人工转接。</p></div></article></section>';
-  const transcriptPanel = state.voiceSubtitleVisible ? '<div class="voice-transcript"><div class="transcript-head"><span>ASR / TTS TRANSCRIPT</span><b>' + state.voiceCallStatus.toUpperCase() + '</b></div><div class="transcript-layer partial"><span>ASR PARTIAL</span><p>' + esc(state.voicePartial || '等待用户说话…') + '</p></div>' + messages + '<div class="transcript-layer tts"><span>TTS PLAYBACK</span><p>' + esc(state.voiceTtsText || '等待 Agent 播报…') + '</p></div></div>' : '<div class="subtitle-hidden">字幕已隐藏。你仍可以在右侧日志与指标面板查看事件。</div>';
+  const transcriptPanel = state.voiceSubtitleVisible ? '<div class="voice-transcript"><div class="transcript-head"><span>ASR / TTS TRANSCRIPT</span><b>' + state.voiceCallStatus.toUpperCase() + '</b></div><div class="transcript-layer partial"><span>ASR PARTIAL / LIVE</span><p>' + esc(state.voicePartial || '等待用户说话…') + '</p></div>' + messages + '<div class="transcript-layer tts"><span>TTS PLAYBACK / LIVE</span><p>' + esc(state.voiceTtsPartial || state.voiceTtsText || '等待 Agent 播报…') + '</p></div></div>' : '<div class="subtitle-hidden">字幕已隐藏。你仍可以在右侧日志与指标面板查看事件。</div>';
   const agentAvatar = '<div class="agent-identity"><div class="agent-avatar ' + scenario.accent + '">' + scenario.title.slice(0, 1) + '</div><div><b>' + esc(scenario.agentName || scenario.title) + '</b><small>' + esc(scenario.agentRole || 'Voice Agent') + '</small></div></div>';
   const settings = '<div class="settings-grid"><div class="setting-group"><label>Language<select data-voice-language><option value="zh" ' + (state.voiceLanguage === 'zh' ? 'selected' : '') + '>中文 / zh</option><option value="en" ' + (state.voiceLanguage === 'en' ? 'selected' : '') + '>English / en</option><option value="ar" ' + (state.voiceLanguage === 'ar' ? 'selected' : '') + '>العربية / ar</option></select></label><label>Voice<select data-voice-voice><option value="default" ' + (state.voiceVoice === 'default' ? 'selected' : '') + '>Server default</option><option value="JBFqnCBsd6RMkjVDRZzb" ' + (state.voiceVoice === 'JBFqnCBsd6RMkjVDRZzb' ? 'selected' : '') + '>George · neutral</option><option value="21m00Tcm4TlvDq8ikWAM" ' + (state.voiceVoice === '21m00Tcm4TlvDq8ikWAM' ? 'selected' : '') + '>Rachel · clear</option></select></label><label>TTS model<select data-voice-model><option value="eleven_flash_v2_5" ' + (state.voiceModel === 'eleven_flash_v2_5' ? 'selected' : '') + '>eleven_flash_v2_5</option><option value="eleven_v4_turbo" ' + (state.voiceModel === 'eleven_v4_turbo' ? 'selected' : '') + '>eleven_v4_turbo</option></select></label><label>Fast model<select data-voice-fast-model><option value="openai/gpt-4.1-mini" ' + (state.voiceFastModel === 'openai/gpt-4.1-mini' ? 'selected' : '') + '>gpt-4.1-mini · 快</option><option value="openai/gpt-5.6-luna" ' + (state.voiceFastModel === 'openai/gpt-5.6-luna' ? 'selected' : '') + '>gpt-5.6-luna · 快</option><option value="openai/gpt-5.6-sol" ' + (state.voiceFastModel === 'openai/gpt-5.6-sol' ? 'selected' : '') + '>gpt-5.6-sol · 质量</option></select></label><label>Slow model<select data-voice-slow-model><option value="openai/gpt-5.6-sol" ' + (state.voiceSlowModel === 'openai/gpt-5.6-sol' ? 'selected' : '') + '>gpt-5.6-sol · 慢思考</option><option value="openai/gpt-5.6-terra" ' + (state.voiceSlowModel === 'openai/gpt-5.6-terra' ? 'selected' : '') + '>gpt-5.6-terra · 深度</option><option value="openai/gpt-4.1" ' + (state.voiceSlowModel === 'openai/gpt-4.1' ? 'selected' : '') + '>gpt-4.1 · 稳定</option></select></label><label>ASR model<select data-voice-asr-model><option value="Web Speech API / Chrome sandbox" ' + (state.voiceAsrModel === 'Web Speech API / Chrome sandbox' ? 'selected' : '') + '>Web Speech API · sandbox</option><option value="openai/gpt-live-transcribe" ' + (state.voiceAsrModel === 'openai/gpt-live-transcribe' ? 'selected' : '') + '>gpt-live-transcribe · server</option><option value="openai/gpt-4o-transcribe" ' + (state.voiceAsrModel === 'openai/gpt-4o-transcribe' ? 'selected' : '') + '>gpt-4o-transcribe · server</option></select></label><label>Tone<select data-voice-tone><option value="neutral">中性</option><option value="warm">温暖</option><option value="professional">专业</option><option value="energetic">活跃</option></select></label></div><div class="setting-group setting-sliders"><label>Pitch <output data-output="pitch">' + state.voicePitch + '</output><input type="range" min="0.8" max="1.2" step="0.05" value="' + state.voicePitch + '" data-voice-pitch></label><label>Emotion <select data-voice-emotion><option value="neutral">中性</option><option value="calm">平静</option><option value="happy">积极</option><option value="empathetic">共情</option></select></label><label>Stability <output data-output="stability">' + state.voiceStability + '</output><input type="range" min="0" max="1" step="0.05" value="' + state.voiceStability + '" data-voice-stability></label><label>Similarity <output data-output="similarity">' + state.voiceSimilarity + '</output><input type="range" min="0" max="1" step="0.05" value="' + state.voiceSimilarity + '" data-voice-similarity></label><label>Style <output data-output="style">' + state.voiceStyle + '</output><input type="range" min="0" max="1" step="0.05" value="' + state.voiceStyle + '" data-voice-style></label><label>Speed <output data-output="speed">' + state.voiceSpeed + '</output><input type="range" min="0.7" max="1.2" step="0.05" value="' + state.voiceSpeed + '" data-voice-speed></label><label>Output format<select data-voice-output-format><option value="mp3_44100_128" ' + (state.voiceOutputFormat === 'mp3_44100_128' ? 'selected' : '') + '>mp3_44100_128</option><option value="pcm_16000" ' + (state.voiceOutputFormat === 'pcm_16000' ? 'selected' : '') + '>pcm_16000</option></select></label><label>Chunk schedule<input data-voice-chunk-schedule value="' + state.voiceChunkSchedule + '" aria-label="Chunk schedule" /></label><label>Barge-in<select data-voice-barge-in><option value="server_vad" ' + (state.voiceBargeIn === 'server_vad' ? 'selected' : '') + '>Server VAD</option><option value="semantic_vad" ' + (state.voiceBargeIn === 'semantic_vad' ? 'selected' : '') + '>Semantic VAD</option></select></label></div></div>';
   const callButton = scenario.direction === 'outbound' ? '<button class="call-action answer ' + (state.voiceCallStatus === 'connected' ? 'reconnect' : '') + '" type="button" data-voice-answer>' + (state.voiceCallStatus === 'ringing' ? '接听来电' : state.voiceCallStatus === 'ended' ? '再次来电' : '已接听') + '</button><button class="call-action reject ' + (state.voiceCallStatus === 'ringing' ? '' : 'reconnect') + '" type="button" data-voice-reject>拒接</button>' : '<button class="call-action answer ' + (state.voiceCallStatus === 'connected' || state.voiceCallStatus === 'connecting' ? 'reconnect' : '') + '" type="button" data-voice-call>' + (state.voiceCallStatus === 'idle' || state.voiceCallStatus === 'ended' ? '开始拨号' : '重新连接') + '</button>';
@@ -123,6 +206,7 @@ async function elevenLabsSpeak(text) {
         state.voiceAudio = new Audio(URL.createObjectURL(blob));
         state.voiceAudio.onended = () => { state.voiceStatus = 'connected'; render(true); };
         state.voiceAudio.onerror = () => { state.voiceStatus = 'connected'; voiceLog('audio playback error', 'orange'); render(true); };
+        addVoiceAnalyserForElement(state.voiceAudio);
         state.voiceAudio.play().catch(() => {});
         state.voiceApiState = 'server TTS ready';
         voiceLog('server TTS audio ready', 'lime');
@@ -162,9 +246,9 @@ function applyRuntimeEvent(event, source = 'runtime') {
     room_joined: 'LiveKit room joined', agent_joined: 'agent joined', audio_track_ready: 'audio track ready',
     listening: 'agent listening', speech_started: 'speech started', speech_stopped: 'speech stopped',
     knowledge_hit: 'knowledge base hit', tool_call: 'tool called', tts_started: 'tts started', speaking: 'agent speaking',
-    barge_in: 'barge-in detected', interrupted: 'response interrupted', reconnecting: 'reconnecting', ended: 'call ended', partial_transcript: 'ASR partial transcript', final_transcript: 'ASR final transcript', tts_text: 'TTS text committed', deep_started: 'slow lane started', deep_result: 'slow lane result ready', deep_result_used: 'slow lane result used', deep_error: 'slow lane fallback', emotion_detected: 'emotion detected', demographics_detected: 'demographics detected'
+    barge_in: 'barge-in detected', interrupted: 'response interrupted', reconnecting: 'reconnecting', ended: 'call ended', partial_transcript: 'ASR partial transcript', final_transcript: 'ASR final transcript', tts_text_delta: 'TTS streaming transcript', tts_text: 'TTS text committed', deep_started: 'slow lane started', deep_result: 'slow lane result ready', deep_result_used: 'slow lane result used', deep_error: 'slow lane fallback', emotion_detected: 'emotion detected', demographics_detected: 'demographics detected'
   };
-  if (event.type !== 'tts_first_byte' && event.type !== 'audio') voiceLog(labels[event.type] || event.type, event.type === 'error' ? 'orange' : 'cyan');
+  if (!['tts_first_byte', 'audio', 'tts_text_delta'].includes(event.type)) voiceLog(labels[event.type] || event.type, event.type === 'error' ? 'orange' : 'cyan');
   if (event.type === 'error') { state.voiceStatus = 'error'; state.voiceCallStatus = 'error'; state.voiceApiState = event.code || 'runtime error'; }
   if (event.type === 'ringing') { state.voiceStatus = 'ringing'; state.voiceCallStatus = 'ringing'; }
   if (['dialing', 'ice_checking', 'connecting', 'room_joined', 'agent_joined'].includes(event.type)) { state.voiceStatus = 'connecting'; state.voiceCallStatus = 'connecting'; }
@@ -190,8 +274,10 @@ function applyRuntimeEvent(event, source = 'runtime') {
   if (event.step != null) state.voiceStep = event.step;
   if (event.partial || event.type === 'partial_transcript') state.voicePartial = event.partial || event.transcript || event.text || '';
   if (event.type === 'final_transcript' && (event.transcript || event.text)) { state.voicePartial = ''; state.voiceMessages.push({ role: event.role || 'user', text: event.transcript || event.text }); }
-  if (event.type === 'tts_text' || event.type === 'tts_started') state.voiceTtsText = event.text || event.transcript || state.voiceTtsText;
-  if (event.transcript && event.role && event.type !== 'partial_transcript' && event.type !== 'final_transcript') state.voiceMessages.push({ role: event.role, text: event.transcript });
+  if (event.type === 'tts_started') state.voiceTtsPartial = '';
+  if (event.type === 'tts_text_delta') { state.voiceTtsPartial = event.transcript || event.text || state.voiceTtsPartial; state.voiceTtsText = state.voiceTtsPartial; }
+  if (event.type === 'tts_text' || event.type === 'tts_started') { state.voiceTtsText = event.text || event.transcript || state.voiceTtsText; state.voiceTtsPartial = state.voiceTtsText; }
+  if (event.transcript && event.role && !['partial_transcript', 'final_transcript', 'tts_text_delta'].includes(event.type)) state.voiceMessages.push({ role: event.role, text: event.transcript });
   if (event.insights) state.voiceInsights = { ...state.voiceInsights, ...event.insights };
   if (event.agentModel) state.voiceAgentModel = event.agentModel;
   if (event.fastModel) { state.voiceFastModel = event.fastModel; state.voiceAgentModel = event.fastModel; }
@@ -228,7 +314,14 @@ async function connectLiveKit(session) {
       media.setAttribute('data-livekit-audio', 'true');
       media.autoplay = true;
       document.body.appendChild(media);
+      addVoiceAnalyserForTrack(track);
       voiceLog('remote audio track attached', 'lime');
+    }
+  });
+  room.on(RoomEvent.TrackUnsubscribed, (track) => {
+    if (track.kind === 'audio') {
+      track.detach().forEach((element) => element.remove());
+      voiceLog('remote audio track detached', 'quiet');
     }
   });
   room.on(RoomEvent.DataReceived, (payload) => {
@@ -238,6 +331,7 @@ async function connectLiveKit(session) {
   const localTrack = await createLocalAudioTrack({ echoCancellation: true, noiseSuppression: true, autoGainControl: true });
   await room.localParticipant.publishTrack(localTrack);
   state.voiceLocalTrack = localTrack;
+  addVoiceAnalyserForTrack(localTrack);
   state.voiceCallStatus = 'connected';
   state.voiceStatus = 'connected';
   voiceLog('microphone track published', 'lime');
@@ -474,7 +568,7 @@ function bindVoiceEvents() {
     recognition.start();
   });
   const end = document.querySelector('[data-voice-end]');
-  if (end) end.addEventListener('click', async () => { if (state.voiceStatsTimer) { window.clearInterval(state.voiceStatsTimer); state.voiceStatsTimer = null; } if (state.voiceLocalTrack) { state.voiceLocalTrack.stop(); state.voiceLocalTrack = null; } if (state.voiceRoom) { state.voiceRoom.disconnect(); state.voiceRoom = null; } if (state.voiceEventSocket) { state.voiceEventSocket.close(); state.voiceEventSocket = null; } if (voiceRuntimeUrl() && state.voiceSession?.sessionId) await fetch(voiceRuntimeEndpoint('/api/voice/end'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: state.voiceSession.sessionId, reason: 'user' }) }).catch(() => {}); state.voiceCallStatus = 'ended'; state.voiceStatus = 'ended'; voiceLog('call ended by user', 'orange'); render(); });
+  if (end) end.addEventListener('click', async () => { if (state.voiceStatsTimer) { window.clearInterval(state.voiceStatsTimer); state.voiceStatsTimer = null; } if (state.voiceLocalTrack) { state.voiceLocalTrack.stop(); state.voiceLocalTrack = null; } if (state.voiceRoom) { state.voiceRoom.disconnect(); state.voiceRoom = null; } stopVoiceAnalyser(); if (state.voiceEventSocket) { state.voiceEventSocket.close(); state.voiceEventSocket = null; } if (voiceRuntimeUrl() && state.voiceSession?.sessionId) await fetch(voiceRuntimeEndpoint('/api/voice/end'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: state.voiceSession.sessionId, reason: 'user' }) }).catch(() => {}); state.voiceCallStatus = 'ended'; state.voiceStatus = 'ended'; voiceLog('call ended by user', 'orange'); render(); });
   const speak = document.querySelector('[data-voice-speak]');
   if (speak) speak.addEventListener('click', () => { const last = [...state.voiceMessages].reverse().find((item) => item.role === 'assistant'); if (last) elevenLabsSpeak(last.text); });
   const captions = document.querySelector('[data-voice-captions]');
