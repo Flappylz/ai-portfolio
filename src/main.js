@@ -301,7 +301,8 @@ function traceEventLabel(event) {
 }
 function traceEventTime(event) {
   if (!event?.ts) return '--:--:--';
-  return new Date(event.ts).toLocaleTimeString('zh-CN', { hour12: false });
+  const parsed = Date.parse(event.ts);
+  return Number.isNaN(parsed) ? String(event.ts).slice(0, 12) : new Date(parsed).toLocaleTimeString('zh-CN', { hour12: false });
 }
 function applyRuntimeEvent(event, source = 'runtime') {
   if (!event || typeof event !== 'object') return;
