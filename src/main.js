@@ -290,14 +290,14 @@ async function loadSessionTrace() {
     state.voiceTraceEvents = Array.isArray(payload.events) ? payload.events : [];
     state.voiceTraceStatus = `loaded ${state.voiceTraceEvents.length}`;
   } catch (error) {
-    state.voiceTraceStatus = 'error';
+    state.voiceTraceStatus = `local ${state.voiceLogs.length} · server trace unavailable`;
     voiceLog('trace query failed: ' + error.message, 'orange');
   }
   render(true);
 }
 function traceEventLabel(event) {
-  const value = event?.code || event?.text || event?.transcript || event?.reason || '';
-  return [event?.type || 'event', value].filter(Boolean).join(' · ').slice(0, 180);
+  const value = event?.code || event?.text || event?.transcript || event?.reason || event?.label || '';
+  return event?.type === 'ui' ? String(value || 'event').slice(0, 180) : [event?.type || 'event', value].filter(Boolean).join(' · ').slice(0, 180);
 }
 function traceEventTime(event) {
   if (!event?.ts) return '--:--:--';
