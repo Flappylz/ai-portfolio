@@ -6,7 +6,7 @@ const app = document.querySelector('#app');
 const githubUrl = 'https://github.com/Flappylz';
 const email = '760871196@qq.com';
 
-const state = { modeId: 'discovery', status: 'draft', score: 0, input: '', response: '', deliveryChecks: [], deliverySummary: '', voiceScenario: 'carrier', voiceInput: '', voiceStatus: 'sandbox', voiceCallStatus: 'idle', voiceMuted: false, voiceSubtitleVisible: true, voiceStep: 0, voiceMessages: [], voiceLogs: [], voiceRound: 0, voiceLanguage: 'zh', voiceVoice: 'default', voiceModel: 'eleven_flash_v2_5', voiceAgentModel: 'openai/gpt-4.1-mini', voiceFastModel: 'openai/gpt-4.1-mini', voiceSlowModel: 'openai/gpt-5.6-sol', voiceSlowStatus: 'idle', voiceQualityPath: 'fast voice → slow validation', voiceAsrModel: 'Web Speech API / Chrome sandbox', voiceTone: 'neutral', voicePitch: 1, voiceEmotion: 'neutral', voiceStability: 0.5, voiceSimilarity: 0.75, voiceStyle: 0.2, voiceSpeed: 1, voiceOutputFormat: 'mp3_44100_128', voiceChunkSchedule: '50,120,160,290', voiceBargeIn: 'server_vad', voicePartial: '', voiceTtsText: '', voiceTtsPartial: '', voiceAmplitude: 0, voiceAudioContext: null, voiceAnalyserSources: [], voiceWaveFrame: null, voiceInsights: { emotion: '待识别', age: '待识别', gender: '待识别', confidence: null }, runtimeMode: 'sandbox', voiceApiState: 'sandbox / simulated', voiceLatency: { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null }, voiceMetrics: { rtt: null, jitter: null, packetLoss: null, interrupt: null }, voiceSession: null, voiceRoom: null, voiceLocalTrack: null, voiceEventSocket: null, voiceTtsSocket: null, voiceAudio: null, voiceStatsTimer: null, voiceOutboundInit: false, events: [
+const state = { modeId: 'discovery', status: 'draft', score: 0, input: '', response: '', deliveryChecks: [], deliverySummary: '', voiceScenario: 'carrier', voiceInput: '', voiceStatus: 'sandbox', voiceCallStatus: 'idle', voiceMuted: false, voiceSubtitleVisible: true, voiceStep: 0, voiceMessages: [], voiceLogs: [], voiceRound: 0, voiceLanguage: 'zh', voiceVoice: 'default', voiceModel: 'eleven_flash_v2_5', voiceAgentModel: 'openai/gpt-4.1-mini', voiceFastModel: 'openai/gpt-4.1-mini', voiceSlowModel: 'openai/gpt-5.6-sol', voiceSlowStatus: 'idle', voiceQualityPath: 'fast voice → slow validation', voiceAsrModel: 'Web Speech API / Chrome sandbox', voiceAsrFallback: false, voiceRecognition: null, voiceRecognitionActive: false, voiceTone: 'neutral', voicePitch: 1, voiceEmotion: 'neutral', voiceStability: 0.5, voiceSimilarity: 0.75, voiceStyle: 0.2, voiceSpeed: 1, voiceOutputFormat: 'mp3_44100_128', voiceChunkSchedule: '50,120,160,290', voiceBargeIn: 'server_vad', voicePartial: '', voiceTtsText: '', voiceTtsPartial: '', voiceAmplitude: 0, voiceAudioContext: null, voiceAnalyserSources: [], voiceWaveFrame: null, voiceInsights: { emotion: '待识别', age: '待识别', gender: '待识别', confidence: null }, runtimeMode: 'sandbox', voiceApiState: 'sandbox / simulated', voiceLatency: { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null }, voiceMetrics: { rtt: null, jitter: null, packetLoss: null, interrupt: null }, voiceSession: null, voiceRoom: null, voiceLocalTrack: null, voiceEventSocket: null, voiceTtsSocket: null, voiceAudio: null, voiceStatsTimer: null, voiceOutboundInit: false, events: [
   { time: '09:41:03', label: 'workspace initialized', tone: 'quiet' },
   { time: '09:41:11', label: 'agent schema loaded', tone: 'cyan' }
 ] };
@@ -118,11 +118,13 @@ function addVoiceAnalyserForElement(element) {
     analyser.smoothingTimeConstant = 0.74;
     const source = context.createMediaElementSource(element);
     const sink = context.createGain();
-    sink.gain.value = 0;
+    // MediaElementSource replaces the element's normal output path. Keep the
+    // signal audible while the analyser observes the same stream.
+    sink.gain.value = 1;
     source.connect(analyser);
     analyser.connect(sink);
     sink.connect(context.destination);
-    state.voiceAnalyserSources.push({ source, analyser, sink, data: new Uint8Array(analyser.fftSize) });
+    state.voiceAnalyserSources.push({ source, analyser, sink, data: new Uint8Array(analyser.fftSize), element });
     if (!state.voiceWaveFrame) state.voiceWaveFrame = window.requestAnimationFrame(updateVoiceWaveform);
   } catch {
     // A media element can only be connected to one AudioContext source.
@@ -132,10 +134,11 @@ function resetVoiceState(id) {
   const next = voiceScenarios.find((item) => item.id === id) || voiceScenarios[0];
   if (state.voiceScenario === id && (state.voiceMessages.length || state.voiceLogs.length)) return;
   if (state.voiceRoom) state.voiceRoom.disconnect();
+  if (state.voiceRecognition) { try { state.voiceRecognition.abort(); } catch {} }
   stopVoiceAnalyser();
   if (state.voiceEventSocket) state.voiceEventSocket.close();
   if (state.voiceStatsTimer) window.clearInterval(state.voiceStatsTimer);
-  state.voiceScenario = id; state.voiceInput = ''; state.voiceStatus = next.direction === 'outbound' ? 'ringing' : 'idle'; state.voiceCallStatus = next.direction === 'outbound' ? 'ringing' : 'idle'; state.voiceStep = 0; state.voiceMessages = []; state.voiceLogs = []; state.voiceRound = 0; state.voiceApiState = 'sandbox / simulated'; state.voicePartial = ''; state.voiceTtsText = ''; state.voiceTtsPartial = ''; state.voiceInsights = { emotion: '待识别', age: '待识别', gender: '待识别', confidence: null }; state.voiceLatency = { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null }; state.voiceMetrics = { rtt: null, jitter: null, packetLoss: null, interrupt: null }; state.voiceSlowStatus = 'idle'; state.voiceQualityPath = 'fast voice → slow validation'; state.voiceSession = null; state.voiceRoom = null; state.voiceEventSocket = null; state.voiceStatsTimer = null; state.voiceOutboundInit = false;
+  state.voiceScenario = id; state.voiceInput = ''; state.voiceStatus = next.direction === 'outbound' ? 'ringing' : 'idle'; state.voiceCallStatus = next.direction === 'outbound' ? 'ringing' : 'idle'; state.voiceStep = 0; state.voiceMessages = []; state.voiceLogs = []; state.voiceRound = 0; state.voiceApiState = 'sandbox / simulated'; state.voicePartial = ''; state.voiceTtsText = ''; state.voiceTtsPartial = ''; state.voiceAsrFallback = false; state.voiceRecognition = null; state.voiceRecognitionActive = false; state.voiceInsights = { emotion: '待识别', age: '待识别', gender: '待识别', confidence: null }; state.voiceLatency = { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null }; state.voiceMetrics = { rtt: null, jitter: null, packetLoss: null, interrupt: null }; state.voiceSlowStatus = 'idle'; state.voiceQualityPath = 'fast voice → slow validation'; state.voiceSession = null; state.voiceRoom = null; state.voiceEventSocket = null; state.voiceStatsTimer = null; state.voiceOutboundInit = false;
 }
 function voiceScenarioView(id) {
   resetVoiceState(id);
@@ -248,8 +251,19 @@ function applyRuntimeEvent(event, source = 'runtime') {
     knowledge_hit: 'knowledge base hit', tool_call: 'tool called', tts_started: 'tts started', speaking: 'agent speaking',
     barge_in: 'barge-in detected', interrupted: 'response interrupted', reconnecting: 'reconnecting', ended: 'call ended', partial_transcript: 'ASR partial transcript', final_transcript: 'ASR final transcript', tts_text_delta: 'TTS streaming transcript', tts_text: 'TTS text committed', deep_started: 'slow lane started', deep_result: 'slow lane result ready', deep_result_used: 'slow lane result used', deep_error: 'slow lane fallback', emotion_detected: 'emotion detected', demographics_detected: 'demographics detected'
   };
-  if (!['tts_first_byte', 'audio', 'tts_text_delta'].includes(event.type)) voiceLog(labels[event.type] || event.type, event.type === 'error' ? 'orange' : 'cyan');
-  if (event.type === 'error') { state.voiceStatus = 'error'; state.voiceCallStatus = 'error'; state.voiceApiState = event.code || 'runtime error'; }
+  if (!['tts_first_byte', 'audio', 'tts_text_delta'].includes(event.type)) voiceLog((labels[event.type] || event.type) + (event.type === 'error' && event.code ? ': ' + String(event.code).slice(0, 96) : ''), event.type === 'error' ? 'orange' : 'cyan');
+  if (event.type === 'error') {
+    const code = String(event.code || event.message || 'runtime error');
+    state.voiceStatus = 'error';
+    state.voiceCallStatus = 'error';
+    state.voiceApiState = code;
+    if (/429|quota|stt|speech|recogniz/i.test(code)) {
+      state.voiceAsrFallback = true;
+      if (/stt|speech|recogniz/i.test(code)) state.voiceAsrModel = 'Web Speech API / Chrome fallback';
+      state.voiceApiState = /429|quota/i.test(code) ? 'server Agent unavailable → Chrome ASR + demo reply' : 'server ASR unavailable → Chrome fallback';
+      window.setTimeout(() => startBrowserRecognition({ fallback: true }), 0);
+    }
+  }
   if (event.type === 'ringing') { state.voiceStatus = 'ringing'; state.voiceCallStatus = 'ringing'; }
   if (['dialing', 'ice_checking', 'connecting', 'room_joined', 'agent_joined'].includes(event.type)) { state.voiceStatus = 'connecting'; state.voiceCallStatus = 'connecting'; }
   if (['audio_track_ready', 'listening', 'speech_stopped'].includes(event.type)) { state.voiceStatus = 'connected'; state.voiceCallStatus = 'connected'; }
@@ -438,6 +452,69 @@ function processVoiceInput(text) {
     else { state.voiceApiState = 'sandbox / browser preview'; browserSpeak(scenario.reply); }
   }, 420);
 }
+function startBrowserRecognition({ fallback = false } = {}) {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) {
+    state.voiceApiState = 'browser recognition unavailable';
+    voiceLog('microphone API unavailable; use text input', 'orange');
+    render(true);
+    return;
+  }
+  if (state.voiceRecognitionActive) return;
+  const recognition = new Recognition();
+  state.voiceRecognition = recognition;
+  state.voiceRecognitionActive = true;
+  state.voiceAsrFallback = state.voiceAsrFallback || fallback;
+  if (fallback) state.voiceAsrModel = 'Web Speech API / Chrome fallback';
+  recognition.lang = state.voiceLanguage === 'en' ? 'en-US' : state.voiceLanguage === 'ar' ? 'ar-SA' : 'zh-CN';
+  recognition.interimResults = true;
+  recognition.continuous = false;
+  recognition.maxAlternatives = 1;
+  recognition.onstart = () => {
+    state.voiceStatus = 'listening';
+    voiceLog(fallback ? 'Chrome ASR fallback listening' : 'microphone listening', 'cyan');
+    render(true);
+  };
+  recognition.onresult = (event) => {
+    let interim = '';
+    let finalText = '';
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      const text = event.results[index][0].transcript;
+      if (event.results[index].isFinal) finalText += text;
+      else interim += text;
+    }
+    const transcript = interim || finalText;
+    if (transcript) {
+      state.voicePartial = transcript;
+      state.voiceStatus = 'listening';
+      render(true);
+    }
+    if (finalText) processVoiceInput(finalText);
+  };
+  recognition.onerror = (event) => {
+    state.voiceRecognitionActive = false;
+    if (state.voiceRecognition === recognition) state.voiceRecognition = null;
+    state.voiceStatus = state.voiceCallStatus === 'connected' ? 'connected' : 'ready';
+    state.voiceApiState = fallback ? 'Chrome ASR fallback error' : 'microphone error';
+    voiceLog('microphone error: ' + event.error, 'orange');
+    render(true);
+  };
+  recognition.onend = () => {
+    state.voiceRecognitionActive = false;
+    if (state.voiceRecognition === recognition) state.voiceRecognition = null;
+    if (state.voiceStatus === 'listening') state.voiceStatus = 'connected';
+    render(true);
+  };
+  try {
+    recognition.start();
+  } catch (error) {
+    state.voiceRecognitionActive = false;
+    state.voiceRecognition = null;
+    state.voiceApiState = 'browser recognition unavailable';
+    voiceLog('microphone start failed: ' + error.message, 'orange');
+    render(true);
+  }
+}
 function bindVoiceEvents() {
   const actionBar = document.querySelector('.call-actions');
   if (actionBar && !actionBar.querySelector('[data-voice-mic]')) {
@@ -544,29 +621,7 @@ function bindVoiceEvents() {
   const mute = document.querySelector('[data-voice-mute]');
   if (mute) mute.addEventListener('click', () => { state.voiceMuted = !state.voiceMuted; voiceLog(state.voiceMuted ? 'microphone muted' : 'microphone unmuted', 'cyan'); render(); });
   const mic = document.querySelector('[data-voice-mic]');
-  if (mic) mic.addEventListener('click', () => {
-    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Recognition) { state.voiceApiState = 'browser recognition unavailable'; voiceLog('microphone API unavailable; use text input', 'orange'); render(); return; }
-    const recognition = new Recognition();
-    recognition.lang = state.voiceLanguage === 'en' ? 'en-US' : state.voiceLanguage === 'ar' ? 'ar-SA' : 'zh-CN';
-    recognition.interimResults = true;
-    recognition.onstart = () => { state.voiceStatus = 'listening'; voiceLog('microphone listening', 'cyan'); render(); };
-    recognition.onresult = (event) => {
-      let interim = '';
-      let finalText = '';
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const text = event.results[index][0].transcript;
-        if (event.results[index].isFinal) finalText += text;
-        else interim += text;
-      }
-      state.voicePartial = interim || finalText;
-      if (interim) { state.voiceStatus = 'listening'; render(true); }
-      if (finalText) processVoiceInput(finalText);
-    };
-    recognition.onerror = (event) => { state.voiceStatus = 'ready'; state.voiceApiState = 'microphone error'; voiceLog('microphone error: ' + event.error, 'orange'); render(); };
-    recognition.onend = () => { if (state.voiceStatus === 'listening') { state.voiceStatus = 'ready'; render(); } };
-    recognition.start();
-  });
+  if (mic) mic.addEventListener('click', () => startBrowserRecognition({ fallback: state.voiceAsrFallback }));
   const end = document.querySelector('[data-voice-end]');
   if (end) end.addEventListener('click', async () => { if (state.voiceStatsTimer) { window.clearInterval(state.voiceStatsTimer); state.voiceStatsTimer = null; } if (state.voiceLocalTrack) { state.voiceLocalTrack.stop(); state.voiceLocalTrack = null; } if (state.voiceRoom) { state.voiceRoom.disconnect(); state.voiceRoom = null; } stopVoiceAnalyser(); if (state.voiceEventSocket) { state.voiceEventSocket.close(); state.voiceEventSocket = null; } if (voiceRuntimeUrl() && state.voiceSession?.sessionId) await fetch(voiceRuntimeEndpoint('/api/voice/end'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: state.voiceSession.sessionId, reason: 'user' }) }).catch(() => {}); state.voiceCallStatus = 'ended'; state.voiceStatus = 'ended'; voiceLog('call ended by user', 'orange'); render(); });
   const speak = document.querySelector('[data-voice-speak]');
