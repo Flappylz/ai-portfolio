@@ -257,10 +257,10 @@ function applyRuntimeEvent(event, source = 'runtime') {
     state.voiceStatus = 'error';
     state.voiceCallStatus = 'error';
     state.voiceApiState = code;
-    if (/429|quota|stt|speech|recogniz/i.test(code)) {
+    if (/429|quota|stt|speech|recogniz|agent_error/i.test(code)) {
       state.voiceAsrFallback = true;
       if (/stt|speech|recogniz/i.test(code)) state.voiceAsrModel = 'Web Speech API / Chrome fallback';
-      state.voiceApiState = /429|quota/i.test(code) ? 'server Agent unavailable → Chrome ASR + demo reply' : 'server ASR unavailable → Chrome fallback';
+      state.voiceApiState = /429|quota|agent_error/i.test(code) ? 'server Agent unavailable → Chrome ASR + demo reply' : 'server ASR unavailable → Chrome fallback';
       window.setTimeout(() => startBrowserRecognition({ fallback: true }), 0);
     }
   }

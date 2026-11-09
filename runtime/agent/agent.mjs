@@ -14,16 +14,19 @@ import * as silero from '@livekit/agents-plugin-silero';
 const SCENARIOS = {
   carrier: {
     direction: 'inbound',
+    greetingText: '你好，我是小岚。你可以咨询套餐、账单或宽带故障，想先了解哪一项？',
     greeting: '用自然、简短的中文问候来电用户，并询问他要咨询套餐、账单还是宽带故障。不要自称模型，不要一次说太长。',
     knowledge: '运营商公开演示知识库：家庭宽带套餐、账单解释、宽带故障排查、人工转接条件。不要编造真实资费、客户信息或库存。',
   },
   airline: {
     direction: 'inbound',
+    greetingText: '你好，我是航班票面助手。请告诉我航班号、日期或乘机人信息，我会逐项帮你核对。',
     greeting: '用自然、简短的中文问候旅客，并逐项询问航班号、日期和乘机人。一次只确认一个关键字段。',
     knowledge: '航空公开演示知识库：航班号、日期、出发地、到达地、行李额和退改规则。价格、出票和实时库存必须说明需要接入真实航司系统。',
   },
   football: {
     direction: 'outbound',
+    greetingText: '你好，我是足球人格测试助手。这是一轮轻松的非官方风格测试，现在方便接听并回答五个问题吗？',
     greeting: '用温暖、轻松的中文说明这是足球人格测试来电，先征得同意，再开始第一道问题。一次只问一道题。',
     knowledge: '足球人格演示知识库：进攻、协作、决策和抗压四个维度，完成五轮后给出非官方的风格解释，不复刻真实球员身份。',
   },
@@ -204,7 +207,7 @@ export default defineAgent({
       : 'low';
     const voiceId = meta.voiceId && meta.voiceId !== 'default'
       ? meta.voiceId
-      : env(`ELEVENLABS_VOICE_ID_${String(meta.scenario || 'carrier').toUpperCase()}`);
+      : env(`ELEVENLABS_VOICE_ID_${String(meta.scenario || 'carrier').toUpperCase()}`, 'JBFqnCBsd6RMkjVDRZzb');
     const elevenLabsKey = env('ELEVENLABS_API_KEY', env('ELEVEN_API_KEY'));
     const traceId = meta.traceId || `agent_${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`;
     const publish = async (type, data = {}) => {
@@ -452,7 +455,9 @@ export default defineAgent({
       }
     });
     session.on(voice.AgentSessionEventTypes.Error, (event) => {
-      publish('error', { code: event.error?.message || 'agent_error' });
+      const error = event.error || {};
+      const code = [error.message, error.name, error.statusCode, error.code].filter(Boolean).join(' ') || 'agent_error';
+      publish('error', { code });
     });
     session.on(voice.AgentSessionEventTypes.Close, (event) => {
       publish('ended', { reason: event.reason || 'agent_closed' });
@@ -469,7 +474,8 @@ export default defineAgent({
       ttsModel: tts.model,
       ttsProvider: elevenLabsKey ? 'elevenlabs' : 'livekit_inference',
     });
-    await session.generateReply({ instructions: scenario.greeting, inputModality: 'text' });
+    await publish('tts_text', { text: scenario.greetingText, transcript: scenario.greetingText, role: 'assistant', source: 'static_greeting' });
+    session.say(scenario.greetingText, { addToChatCtx: true });
   },
 });
 
