@@ -192,6 +192,7 @@ export default defineAgent({
     const meta = decodeMetadata(ctx.room);
     const scenario = scenarioFor(meta);
     const language = meta.language || 'zh';
+    const voiceConfig = meta.voiceConfig || {};
     const sttModel = modelName(meta, 'asrModel', env('LIVEKIT_STT_MODEL', 'openai/gpt-live-transcribe'), 'LIVEKIT_STT_MODEL');
     const fastLlmModel = modelName(
       meta,
@@ -400,7 +401,7 @@ export default defineAgent({
       useTtsAlignedTranscript: true,
       turnHandling: {
         preemptiveGeneration: { enabled: true },
-        interruption: { enabled: true, discardAudioIfUninterruptible: true },
+        interruption: { enabled: voiceConfig.allowInterruption !== false, discardAudioIfUninterruptible: true },
       },
       transcriptionTimeout: 5000,
       userAwayTimeout: 18,
@@ -473,6 +474,7 @@ export default defineAgent({
       asrModel: sttModel,
       ttsModel: tts.model,
       ttsProvider: elevenLabsKey ? 'elevenlabs' : 'livekit_inference',
+      voiceConfig,
     });
     await publish('tts_text', { text: scenario.greetingText, transcript: scenario.greetingText, role: 'assistant', source: 'static_greeting' });
     session.say(scenario.greetingText, { addToChatCtx: true });

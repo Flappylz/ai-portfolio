@@ -98,6 +98,7 @@ function sessionSummary(session) {
     routing: session.routing,
     asrModel: session.asrModel,
     ttsModel: session.ttsModel,
+    voiceConfig: session.voiceConfig,
     transport: session.transport,
     serverUrl: process.env.LIVEKIT_URL || null,
     room: session.room,
@@ -138,6 +139,30 @@ function resolveTtsModel(requested) {
   return value && !value.includes('sandbox') ? value : (process.env.ELEVENLABS_MODEL || 'eleven_flash_v2_5');
 }
 
+function normalizeVoiceConfig(input = {}) {
+  return {
+    vad: ['silero_vad', 'server_vad', 'semantic_vad'].includes(input.vad) ? input.vad : 'silero_vad',
+    noiseReduction: input.noiseReduction !== false,
+    allowInterruption: input.allowInterruption !== false,
+    silenceStrategy: Boolean(input.silenceStrategy),
+    hangupStrategy: Boolean(input.hangupStrategy),
+    startWithVoiceCall: Boolean(input.startWithVoiceCall),
+    userMessagePosition: input.userMessagePosition === 'bottom' ? 'bottom' : 'right',
+    sessionRelevanceRejection: Boolean(input.sessionRelevanceRejection),
+    maxCallTime: Math.max(30, Math.min(7200, Number(input.maxCallTime) || 1800)),
+    tone: String(input.tone || 'neutral').slice(0, 32),
+    emotion: String(input.emotion || 'neutral').slice(0, 32),
+    pitch: Number.isFinite(Number(input.pitch)) ? Number(input.pitch) : 1,
+    stability: Number.isFinite(Number(input.stability)) ? Number(input.stability) : 0.5,
+    similarity: Number.isFinite(Number(input.similarity)) ? Number(input.similarity) : 0.75,
+    style: Number.isFinite(Number(input.style)) ? Number(input.style) : 0.2,
+    speed: Number.isFinite(Number(input.speed)) ? Number(input.speed) : 1,
+    outputFormat: String(input.outputFormat || 'mp3_44100_128').slice(0, 32),
+    chunkSchedule: String(input.chunkSchedule || '50,120,160,290').slice(0, 64),
+    bargeIn: input.bargeIn === 'semantic_vad' ? 'semantic_vad' : 'server_vad'
+  };
+}
+
 function missingLiveConfig(scenario) {
   const required = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'LIVEKIT_AGENT_ID', 'ELEVENLABS_API_KEY'];
   return required.filter((name) => !has(name));
@@ -155,7 +180,7 @@ async function issueLiveToken(session) {
   access.roomConfig = new RoomConfiguration({
     agents: [new RoomAgentDispatch({
       agentName: process.env.LIVEKIT_AGENT_ID,
-      metadata: JSON.stringify({ scenario: session.scenario, direction: session.direction, sessionId: session.id, traceId: session.traceId, language: session.language, voiceId: session.voiceId, agentModel: session.agentModel, fastModel: session.fastModel, slowModel: session.slowModel, asrModel: session.asrModel, ttsModel: session.ttsModel })
+      metadata: JSON.stringify({ scenario: session.scenario, direction: session.direction, sessionId: session.id, traceId: session.traceId, language: session.language, voiceId: session.voiceId, agentModel: session.agentModel, fastModel: session.fastModel, slowModel: session.slowModel, asrModel: session.asrModel, ttsModel: session.ttsModel, voiceConfig: session.voiceConfig })
     })]
   });
   session.room = room;
@@ -198,6 +223,7 @@ async function createSession(payload) {
     routing: 'fast_voice+slow_validation',
     asrModel: resolveAsrModel(payload.asrModel),
     ttsModel: resolveTtsModel(payload.ttsModel || payload.model),
+    voiceConfig: normalizeVoiceConfig(payload.voiceConfig),
     runtimeMode,
     transport: runtimeMode === 'live' ? 'pending' : 'sandbox-webrtc',
     room: null,
