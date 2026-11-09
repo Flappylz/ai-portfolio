@@ -552,6 +552,8 @@ function bindVoiceEvents() {
     state.voiceCallStatus = 'connecting';
     state.voiceStatus = 'connecting';
     state.voiceApiState = voiceRuntimeUrl() ? 'requesting server session' : 'sandbox / simulated';
+    const audioContext = ensureVoiceAudioContext();
+    if (audioContext?.state === 'suspended') await audioContext.resume().catch(() => {});
     voiceLog('session created', 'cyan');
     render();
     if (voiceRuntimeUrl()) {
@@ -586,6 +588,8 @@ function bindVoiceEvents() {
   if (answer) answer.addEventListener('click', async () => {
     state.voiceCallStatus = 'connecting';
     state.voiceStatus = 'connecting';
+    const audioContext = ensureVoiceAudioContext();
+    if (audioContext?.state === 'suspended') await audioContext.resume().catch(() => {});
     render();
     try {
       if (voiceRuntimeUrl() && state.voiceSession?.sessionId) {
