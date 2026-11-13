@@ -9,6 +9,7 @@ import {
   WorkerOptions
 } from '@livekit/agents';
 import * as elevenlabs from '@livekit/agents-plugin-elevenlabs';
+import * as openai from '@livekit/agents-plugin-openai';
 import * as silero from '@livekit/agents-plugin-silero';
 
 const SCENARIOS = {
@@ -34,6 +35,18 @@ const SCENARIOS = {
 
 const env = (name, fallback = '') => process.env[name] || fallback;
 const numberEnv = (name, fallback) => Number.isFinite(Number(process.env[name])) ? Number(process.env[name]) : fallback;
+const normalizeOpenAIModel = (value, fallback) => {
+  const normalized = String(value || '').replace(/^openai\//, '').trim();
+  return normalized && !normalized.includes('/') && !normalized.includes('sandbox') && !normalized.includes('Chrome')
+    ? normalized
+    : fallback;
+};
+const normalizeOpenAISttModel = (value) => {
+  const normalized = normalizeOpenAIModel(value, 'gpt-live-transcribe');
+  return ['gpt-live-transcribe', 'gpt-4o-transcribe', 'gpt-4o-mini-transcribe', 'gpt-realtime-whisper'].includes(normalized)
+    ? normalized
+    : 'gpt-live-transcribe';
+};
 const decodeMetadata = (room) => {
   try {
     const participant = [...room.remoteParticipants.values()][0];
@@ -210,6 +223,10 @@ export default defineAgent({
       ? meta.voiceId
       : env(`ELEVENLABS_VOICE_ID_${String(meta.scenario || 'carrier').toUpperCase()}`, 'JBFqnCBsd6RMkjVDRZzb');
     const elevenLabsKey = env('ELEVENLABS_API_KEY', env('ELEVEN_API_KEY'));
+    const openaiKey = env('OPENAI_API_KEY');
+    const directFastModel = env('OPENAI_FAST_MODEL', normalizeOpenAIModel(fastLlmModel, 'gpt-4.1-mini'));
+    const directSlowModel = env('OPENAI_SLOW_MODEL', normalizeOpenAIModel(slowLlmModel, 'gpt-4.1-mini'));
+    const directSttModel = env('OPENAI_STT_MODEL', normalizeOpenAISttModel(sttModel));
     const traceId = meta.traceId || `agent_${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`;
     const publish = async (type, data = {}) => {
       const event = { type, traceId, sessionId: meta.sessionId || null, scenario: meta.scenario || 'carrier', ts: new Date().toISOString(), ...data };
@@ -247,20 +264,24 @@ export default defineAgent({
       useTtsAlignedTranscript: true,
     }, publish);
 
-    const fastLlm = new inference.LLM({
-      model: fastLlmModel,
-      // Keep the conversational lane on LiveKit's priority class and low
-      // reasoning effort so the first spoken token is not held by deep work.
-      inferenceClass: 'priority',
-      modelOptions: { reasoning_effort: 'low' },
-    });
-    const slowLlm = new inference.LLM({
-      model: slowLlmModel,
-      // Speculative validation is useful, but it is never allowed to starve
-      // the voice lane. LiveKit schedules this independent request as low.
-      inferenceClass: env('LIVEKIT_SLOW_INFERENCE_CLASS', 'low'),
-      modelOptions: { reasoning_effort: slowReasoningEffort },
-    });
+    const fastLlm = openaiKey
+      ? new openai.LLM({ model: directFastModel, apiKey: openaiKey, reasoningEffort: 'low', maxCompletionTokens: 320 })
+      : new inference.LLM({
+        model: fastLlmModel,
+        // Keep the conversational lane on LiveKit's priority class and low
+        // reasoning effort so the first spoken token is not held by deep work.
+        inferenceClass: 'priority',
+        modelOptions: { reasoning_effort: 'low' },
+      });
+    const slowLlm = openaiKey
+      ? new openai.LLM({ model: directSlowModel, apiKey: openaiKey, reasoningEffort: slowReasoningEffort, maxCompletionTokens: 500 })
+      : new inference.LLM({
+        model: slowLlmModel,
+        // Speculative validation is useful, but it is never allowed to starve
+        // the voice lane. LiveKit schedules this independent request as low.
+        inferenceClass: env('LIVEKIT_SLOW_INFERENCE_CLASS', 'low'),
+        modelOptions: { reasoning_effort: slowReasoningEffort },
+      });
     slowLlm.on('error', (event) => {
       publish('deep_error', { model: slowLlmModel, code: event?.error?.message || 'slow_llm_error' }).catch(() => {});
     });
@@ -391,11 +412,20 @@ export default defineAgent({
         modelOptions: { speed: numberEnv('LIVEKIT_TTS_SPEED', 1) },
       });
 
+    const stt = openaiKey
+      ? new openai.STT({
+        apiKey: openaiKey,
+        model: directSttModel,
+        language,
+        detectLanguage: false,
+        useRealtime: true,
+        vad: ctx.proc.userData.vad,
+      })
+      : new inference.STT({ model: sttModel, language, sampleRate: 24000 });
+
     const session = new voice.AgentSession({
       vad: ctx.proc.userData.vad,
-      // openai/gpt-live-transcribe accepts PCM16 at 24 kHz (or G.711 at 8 kHz).
-      // LiveKit resamples incoming browser audio to this rate before streaming.
-      stt: new inference.STT({ model: sttModel, language, sampleRate: 24000 }),
+      stt,
       llm: fastLlm,
       tts,
       useTtsAlignedTranscript: true,

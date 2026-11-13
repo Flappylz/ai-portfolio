@@ -420,13 +420,23 @@ async function connectLiveKit(session) {
     try { applyRuntimeEvent(JSON.parse(new TextDecoder().decode(payload)), 'room'); } catch {}
   });
   await room.connect(session.serverUrl, session.token);
-  const localTrack = await createLocalAudioTrack({ echoCancellation: true, noiseSuppression: state.voiceNoiseReduction, autoGainControl: true });
-  await room.localParticipant.publishTrack(localTrack);
-  state.voiceLocalTrack = localTrack;
-  addVoiceAnalyserForTrack(localTrack);
+  let localTrack = null;
+  try {
+    localTrack = await createLocalAudioTrack({ echoCancellation: true, noiseSuppression: state.voiceNoiseReduction, autoGainControl: true });
+    await room.localParticipant.publishTrack(localTrack);
+    state.voiceLocalTrack = localTrack;
+    addVoiceAnalyserForTrack(localTrack);
+    voiceLog('microphone track published', 'lime');
+  } catch (error) {
+    // A browser can deny microphone permission while the LiveKit room and
+    // remote Agent are already connected. Keep the session LIVE so receive
+    // audio, ElevenLabs TTS and room telemetry remain usable. The mic button
+    // stays available for a user-initiated retry.
+    voiceLog('microphone permission unavailable: ' + (error?.message || 'denied'), 'orange');
+    state.voiceApiState = 'live session / microphone permission required';
+  }
   state.voiceCallStatus = 'connected';
   state.voiceStatus = 'connected';
-  voiceLog('microphone track published', 'lime');
   startLiveKitStats(room);
   render(true);
 }
