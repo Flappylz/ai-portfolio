@@ -24,10 +24,10 @@ const voiceRuntimeSocket = (path) => {
 const extLink = (href, label, className) => '<a class="' + (className || '') + '" href="' + esc(href) + '" target="_blank" rel="noreferrer">' + label + '</a>';
 
 function header() {
-  return '<header class="site-header"><a class="brand" href="#/" aria-label="返回交互式 AI 语音 Demo"><span class="brand-mark"><i></i><i></i></span><span><strong>交互式 AI 语音 Demo</strong><small>LIVE VOICE WORKBENCH</small></span></a><nav class="site-nav" aria-label="主导航"><a class="nav-apps" href="#/apps">Demo</a>' + extLink(githubUrl, 'GitHub', 'nav-external') + '<a class="nav-cta" href="mailto:' + email + '">联系我</a></nav></header>';
+  return '<header class="site-header"><a class="brand" href="#/" aria-label="返回交互式AI语音DEMO"><span class="brand-mark"><i></i><i></i></span><span><strong>交互式AI语音DEMO</strong><small>LIVE VOICE WORKBENCH</small></span></a><nav class="site-nav" aria-label="主导航"><a class="nav-apps" href="#/apps">Demo</a>' + extLink(githubUrl, 'GitHub', 'nav-external') + '<a class="nav-cta" href="mailto:' + email + '">联系我</a></nav></header>';
 }
 function footer() {
-  return '<footer class="site-footer"><div class="footer-brand"><span class="brand-mark"><i></i><i></i></span><div><strong>交互式 AI 语音 Demo</strong><p>实时语音、Agent 工作流和交付级观测。</p></div></div><div class="footer-links">' + extLink(githubUrl, 'GitHub') + '<a href="mailto:' + email + '">' + email + '</a><span>© 2026</span></div></footer>';
+  return '<footer class="site-footer"><div class="footer-brand"><span class="brand-mark"><i></i><i></i></span><div><strong>交互式AI语音DEMO</strong><p>实时语音、Agent 工作流和交付级观测。</p></div></div><div class="footer-links">' + extLink(githubUrl, 'GitHub') + '<a href="mailto:' + email + '">' + email + '</a><span>© 2026</span></div></footer>';
 }
 function shell(content) { return header() + '<main>' + content + '</main>' + footer(); }
 function appCard(app) {
