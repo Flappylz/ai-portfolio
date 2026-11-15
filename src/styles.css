@@ -390,6 +390,84 @@ em { color: var(--cyan); font-style: normal; }
   .voice-stage .call-action.answer, .voice-stage .call-action.voice-input { width: 72px; height: 72px; min-width: 72px; }
 }
 
+/* Unified interaction language: Tabs, Cards, Fields, Messages and Trace */
+:root {
+  --ui-radius-card: 22px;
+  --ui-radius-control: 14px;
+  --ui-border-dark: rgba(202, 218, 232, .14);
+  --ui-border-light: #e1e6ef;
+  --ui-focus: rgba(84, 116, 223, .42);
+}
+.voice-screen-head,
+.voice-context-panel,
+.voice-stage,
+.voice-observe-panel,
+.voice-detail-page {
+  border-radius: var(--ui-radius-card);
+}
+.voice-context-panel,
+.voice-observe-panel {
+  border-color: var(--ui-border-dark);
+  background: linear-gradient(180deg, rgba(16, 26, 36, .98), rgba(10, 17, 24, .98));
+}
+.voice-stage {
+  border-color: var(--ui-border-light);
+}
+.voice-context-panel .panel-title,
+.voice-observe-panel .panel-title,
+.voice-stage .mini-label,
+.voice-stage .call-session-strip,
+.voice-stage > small {
+  letter-spacing: .08em;
+}
+.voice-context-panel .voice-settings,
+.voice-observe-panel .observe-detail,
+.voice-observe-panel .current-model-card,
+.voice-observe-panel .rtc-status-grid > div,
+.voice-observe-panel .metric-grid > div,
+.voice-stage .voice-transcript,
+.voice-stage .live-subtitle {
+  border-radius: var(--ui-radius-control);
+}
+.voice-context-panel .setting-group label,
+.voice-context-panel .setting-group select,
+.voice-context-panel .setting-group input,
+.trace-query-tools input,
+.trace-query-tools select,
+.trace-query-tools button {
+  font-family: inherit;
+}
+.voice-context-panel .setting-group select,
+.voice-context-panel .setting-group input,
+.trace-query-tools input,
+.trace-query-tools select {
+  border-radius: 10px;
+}
+.voice-stage .call-actions {
+  gap: 12px;
+  padding: 18px 12px 10px;
+}
+.voice-stage .call-action {
+  font-family: inherit;
+  border-width: 1px;
+}
+.voice-stage .call-action:focus-visible,
+.scenario-tabs a:focus-visible,
+.voice-context-panel summary:focus-visible,
+.voice-observe-panel summary:focus-visible,
+.detail-link-primary:focus-visible {
+  outline: 3px solid var(--ui-focus);
+  outline-offset: 3px;
+}
+.voice-stage .live-subtitle {
+  width: min(720px, calc(100% - 16px));
+  margin-inline: auto;
+}
+.voice-stage .voice-transcript,
+.voice-observe-panel .observe-detail {
+  box-shadow: 0 8px 24px rgba(22, 35, 58, .08);
+}
+
 /* The call surface is the first page; diagnostics continue below it. */
 @media (min-width: 761px) {
   .voice-console { display: flex; flex-direction: column; gap: 14px; min-height: auto; }
