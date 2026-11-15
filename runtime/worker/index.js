@@ -214,6 +214,16 @@ const json = (body, status = 200, env, origin = '') => new Response(JSON.stringi
   headers: { 'content-type': 'application/json; charset=utf-8', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', ...cors(env, origin) }
 });
 
+const runtimeLanding = (env, origin = '') => new Response(`<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>冯良泽AI · Voice Runtime</title>
+  <style>body{margin:0;background:#0b1118;color:#e8eef5;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:760px;margin:12vh auto;padding:32px}h1{font-size:40px;margin:0 0 12px}p{color:#a9b6c5;line-height:1.6}.status{display:inline-flex;gap:8px;align-items:center;color:#c7ff3d;font-weight:700}.dot{width:9px;height:9px;border-radius:50%;background:#c7ff3d;box-shadow:0 0 18px #c7ff3d}.links{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.links a{color:#0b1118;background:#c7ff3d;padding:12px 16px;text-decoration:none;font-weight:700}.links a.secondary{color:#d7e4ef;background:#17222d;border:1px solid #344554}</style></head>
+  <body><main><div class="status"><span class="dot"></span>VOICE RUNTIME ONLINE</div><h1>冯良泽AI · Voice Runtime</h1><p>实时语音 Demo 的服务端入口。LiveKit WebRTC、ElevenLabs 流式 TTS、会话 Trace 和持久化日志由此提供。</p><div class="links"><a href="https://flappylz.github.io/ai-portfolio/">打开作品集</a><a class="secondary" href="/api/health">查看运行状态</a></div></main></body>
+</html>`, {
+  status: 200,
+  headers: { 'content-type': 'text/html; charset=utf-8', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', ...cors(env, origin) }
+});
+
 const base64url = (value) => btoa(String.fromCharCode(...new Uint8Array(value)))
   .replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 const encodeJson = (value) => base64url(new TextEncoder().encode(JSON.stringify(value)));
@@ -472,6 +482,8 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) });
+    if (request.method === 'GET' && url.pathname === '/') return runtimeLanding(env, request.headers.get('Origin') || '');
+    if (request.method === 'GET' && url.pathname === '/favicon.ico') return new Response(null, { status: 204, headers: cors(env) });
     if (request.method === 'GET' && url.pathname === '/api/health') {
       const body = { ok: true, service: 'voice-runtime-worker', config: { livekit: Boolean(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET && env.LIVEKIT_AGENT_ID), elevenlabs: Boolean(env.ELEVENLABS_API_KEY), traceStore: tracePersistence(env) } };
       if (url.searchParams.get('probe') === '1') body.elevenlabsProbe = await probeElevenLabs(env);
