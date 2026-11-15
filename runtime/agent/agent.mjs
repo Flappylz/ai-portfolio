@@ -268,7 +268,7 @@ export default defineAgent({
     }, publish);
 
     const fastLlm = openaiKey
-      ? new openai.LLM({ model: directFastModel, apiKey: openaiKey, reasoningEffort: 'low', maxCompletionTokens: 320 })
+      ? new openai.LLM({ model: directFastModel, apiKey: openaiKey, maxCompletionTokens: 320 })
       : new inference.LLM({
         model: fastLlmModel,
         // Keep the conversational lane on LiveKit's priority class and low
@@ -277,7 +277,7 @@ export default defineAgent({
         modelOptions: { reasoning_effort: 'low' },
       });
     const slowLlm = openaiKey
-      ? new openai.LLM({ model: directSlowModel, apiKey: openaiKey, reasoningEffort: slowReasoningEffort, maxCompletionTokens: 500 })
+      ? new openai.LLM({ model: directSlowModel, apiKey: openaiKey, maxCompletionTokens: 500 })
       : new inference.LLM({
         model: slowLlmModel,
         // Speculative validation is useful, but it is never allowed to starve
