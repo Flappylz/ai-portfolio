@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "fengliangze-ai-voice-runtime-kv",
+  "main": "worker/cloudflare-proxy.js",
+  "compatibility_date": "2026-11-15",
+  "workers_dev": true,
+  "vars": {
+    "CORS_ORIGIN": "https://flappylz.github.io",
+    "UPSTREAM_RUNTIME_URL": "https://fengliangze-ai-voice-runtime.wellsfung.chatgpt.site"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
