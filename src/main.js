@@ -344,7 +344,8 @@ function applyRuntimeEvent(event, source = 'runtime') {
     }
   }
   if (event.type === 'ringing') { state.voiceStatus = 'ringing'; state.voiceCallStatus = 'ringing'; }
-  if (['dialing', 'ice_checking', 'connecting', 'room_joined', 'agent_joined'].includes(event.type)) { state.voiceStatus = 'connecting'; state.voiceCallStatus = 'connecting'; }
+  if (['dialing', 'ice_checking', 'connecting', 'room_joined'].includes(event.type)) { state.voiceStatus = 'connecting'; state.voiceCallStatus = 'connecting'; }
+  if (event.type === 'agent_joined') { state.voiceStatus = 'connected'; state.voiceCallStatus = 'connected'; }
   if (['audio_track_ready', 'listening', 'speech_stopped'].includes(event.type)) { state.voiceStatus = 'connected'; state.voiceCallStatus = 'connected'; }
   if (event.type === 'speech_started') state.voiceStatus = 'listening';
   if (event.type === 'thinking' || event.type === 'tool_call') state.voiceStatus = 'thinking';
@@ -391,7 +392,96 @@ function subscribeRuntimeEvents(sessionId) {
   socket.addEventListener('message', (event) => { try { applyRuntimeEvent(JSON.parse(event.data), 'runtime'); } catch {} });
   socket.addEventListener('error', () => voiceLog('event stream unavailable', 'orange'));
 }
-async function connectLiveKit(session) {
+async function requestMicrophoneTrack() {
+  let pending;
+  try {
+    pending = createLocalAudioTrack({ echoCancellation: true, noiseSuppression: state.voiceNoiseReduction, autoGainControl: true });
+  } catch (error) {
+    state.voiceApiState = 'microphone permission required';
+    voiceLog('microphone permission unavailable: ' + (error?.message || 'denied'), 'orange');
+    return null;
+  }
+  let timeoutId;
+  pending.then((track) => {
+    if (state.voiceLocalTrack !== track && state.voiceApiState !== 'live microphone ready') track.stop();
+  }).catch(() => {});
+  try {
+    const track = await Promise.race([
+      pending,
+      new Promise((_, reject) => { timeoutId = window.setTimeout(() => reject(new Error('MIC_PERMISSION_TIMEOUT')), 12000); })
+    ]);
+    window.clearTimeout(timeoutId);
+    state.voiceApiState = 'microphone permission granted';
+    state.voiceAsrFallback = false;
+    voiceLog('microphone permission granted', 'lime');
+    return track;
+  } catch (error) {
+    window.clearTimeout(timeoutId);
+    state.voiceApiState = 'microphone permission required';
+    voiceLog('microphone permission unavailable: ' + (error?.message || 'denied'), 'orange');
+    return null;
+  }
+}
+
+async function ensureLiveMicrophone() {
+  if (!state.voiceRoom || state.voiceCallStatus !== 'connected') return false;
+  if (state.voiceLocalTrack) {
+    try { await state.voiceLocalTrack.unmute(); } catch {}
+    state.voiceMuted = false;
+    state.voiceApiState = 'live microphone ready';
+    voiceLog('live microphone ready', 'lime');
+    render(true);
+    return true;
+  }
+  state.voiceApiState = 'requesting microphone permission';
+  voiceLog('requesting microphone permission', 'cyan');
+  render(true);
+  const track = await requestMicrophoneTrack();
+  if (!track) { render(true); return false; }
+  try {
+    await state.voiceRoom.localParticipant.publishTrack(track);
+    state.voiceLocalTrack = track;
+    addVoiceAnalyserForTrack(track);
+    state.voiceMuted = false;
+    state.voiceApiState = 'live microphone ready';
+    voiceLog('microphone track published', 'lime');
+    render(true);
+    return true;
+  } catch (error) {
+    track.stop();
+    state.voiceApiState = 'microphone publish failed';
+    voiceLog('microphone publish failed: ' + (error?.message || 'unknown'), 'orange');
+    render(true);
+    return false;
+  }
+}
+
+async function toggleLiveMute() {
+  if (!state.voiceLocalTrack) {
+    state.voiceMuted = !state.voiceMuted;
+    voiceLog(state.voiceMuted ? 'microphone muted' : 'microphone unmuted', 'cyan');
+    render(true);
+    return;
+  }
+  try {
+    if (state.voiceLocalTrack.isMuted || state.voiceMuted) {
+      await state.voiceLocalTrack.unmute();
+      state.voiceMuted = false;
+      state.voiceApiState = 'live microphone ready';
+      voiceLog('microphone unmuted', 'cyan');
+    } else {
+      await state.voiceLocalTrack.mute();
+      state.voiceMuted = true;
+      state.voiceApiState = 'live microphone muted';
+      voiceLog('microphone muted', 'cyan');
+    }
+  } catch (error) {
+    voiceLog('microphone toggle failed: ' + (error?.message || 'unknown'), 'orange');
+  }
+  render(true);
+}
+
+async function connectLiveKit(session, preloadedTrack = null) {
   if (!session?.token || !session.room || !session.serverUrl) throw new Error('LIVEKIT_SESSION_INCOMPLETE');
   if (state.voiceRoom) state.voiceRoom.disconnect();
   const room = new Room({ adaptiveStream: true, dynacast: true });
@@ -423,11 +513,14 @@ async function connectLiveKit(session) {
     try { applyRuntimeEvent(JSON.parse(new TextDecoder().decode(payload)), 'room'); } catch {}
   });
   await room.connect(session.serverUrl, session.token);
-  let localTrack = null;
+  let localTrack = preloadedTrack;
   try {
-    localTrack = await createLocalAudioTrack({ echoCancellation: true, noiseSuppression: state.voiceNoiseReduction, autoGainControl: true });
+    if (!localTrack) localTrack = await createLocalAudioTrack({ echoCancellation: true, noiseSuppression: state.voiceNoiseReduction, autoGainControl: true });
     await room.localParticipant.publishTrack(localTrack);
     state.voiceLocalTrack = localTrack;
+    state.voiceMuted = false;
+    state.voiceAsrFallback = false;
+    state.voiceApiState = 'live microphone ready';
     addVoiceAnalyserForTrack(localTrack);
     voiceLog('microphone track published', 'lime');
   } catch (error) {
@@ -435,6 +528,7 @@ async function connectLiveKit(session) {
     // remote Agent are already connected. Keep the session LIVE so receive
     // audio, ElevenLabs TTS and room telemetry remain usable. The mic button
     // stays available for a user-initiated retry.
+    if (localTrack && state.voiceLocalTrack !== localTrack) localTrack.stop();
     voiceLog('microphone permission unavailable: ' + (error?.message || 'denied'), 'orange');
     state.voiceApiState = 'live session / microphone permission required';
   }
@@ -610,12 +704,12 @@ function startBrowserRecognition({ fallback = false } = {}) {
 function bindVoiceEvents() {
   document.querySelectorAll('.detail-link-primary').forEach((link) => link.addEventListener('click', (event) => { event.preventDefault(); document.querySelector('#voice-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
   const actionBar = document.querySelector('.call-actions');
-  if (actionBar && !actionBar.querySelector('[data-voice-mic]')) {
+  if (actionBar && !state.voiceLocalTrack && !actionBar.querySelector('[data-voice-mic]')) {
     const micButton = document.createElement('button');
     micButton.type = 'button';
     micButton.className = 'call-action voice-input';
     micButton.dataset.voiceMic = '';
-    micButton.textContent = '开始语音';
+    micButton.textContent = voiceRuntimeUrl() ? '启用麦克风' : '开始语音';
     micButton.disabled = state.voiceCallStatus !== 'connected';
     actionBar.insertBefore(micButton, actionBar.firstChild);
   }
@@ -633,19 +727,27 @@ function bindVoiceEvents() {
     state.voiceApiState = voiceRuntimeUrl() ? 'requesting server session' : 'sandbox / simulated';
     const audioContext = ensureVoiceAudioContext();
     if (audioContext?.state === 'suspended') await audioContext.resume().catch(() => {});
+    let preloadedTrack = null;
+    if (voiceRuntimeUrl() && activeVoiceScenario().direction === 'inbound') {
+      state.voiceApiState = 'requesting microphone permission';
+      voiceLog('requesting microphone permission', 'cyan');
+      render(true);
+      preloadedTrack = await requestMicrophoneTrack();
+    }
     voiceLog('session created', 'cyan');
     render();
     if (voiceRuntimeUrl()) {
       try {
         const session = state.voiceSession || await createRuntimeSession('live');
         if (session.direction === 'outbound' && session.status === 'ringing') throw new Error('OUTBOUND_REQUIRES_ANSWER');
-        if (session.runtimeMode === 'live') await connectLiveKit(session);
-        else { state.voiceCallStatus = 'connecting'; state.voiceStatus = 'connecting'; }
+        if (session.runtimeMode === 'live') await connectLiveKit(session, preloadedTrack);
+        else { if (preloadedTrack) preloadedTrack.stop(); state.voiceCallStatus = 'connecting'; state.voiceStatus = 'connecting'; }
         voiceLog('live session connected', 'lime');
         render();
         return;
       } catch (error) {
         if (error.message === 'OUTBOUND_REQUIRES_ANSWER') { state.voiceCallStatus = 'ringing'; state.voiceStatus = 'ringing'; render(); return; }
+        if (preloadedTrack) { preloadedTrack.stop(); preloadedTrack = null; }
         state.runtimeMode = 'sandbox';
         state.voiceApiState = 'live unavailable → sandbox';
         voiceLog('live unavailable: ' + error.message, 'orange');
@@ -669,6 +771,13 @@ function bindVoiceEvents() {
     state.voiceStatus = 'connecting';
     const audioContext = ensureVoiceAudioContext();
     if (audioContext?.state === 'suspended') await audioContext.resume().catch(() => {});
+    let preloadedTrack = null;
+    if (voiceRuntimeUrl()) {
+      state.voiceApiState = 'requesting microphone permission';
+      voiceLog('requesting microphone permission', 'cyan');
+      render(true);
+      preloadedTrack = await requestMicrophoneTrack();
+    }
     render();
     try {
       if (voiceRuntimeUrl() && state.voiceSession?.sessionId) {
@@ -676,7 +785,7 @@ function bindVoiceEvents() {
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || 'ANSWER_FAILED');
         state.voiceSession = payload.session || state.voiceSession;
-        if (state.voiceSession.runtimeMode === 'live') await connectLiveKit(state.voiceSession);
+        if (state.voiceSession.runtimeMode === 'live') await connectLiveKit(state.voiceSession, preloadedTrack);
       } else {
         state.runtimeMode = 'sandbox';
         state.voiceApiState = 'sandbox / simulated';
@@ -695,7 +804,7 @@ function bindVoiceEvents() {
       // already-issued session instead of silently downgrading the call.
       if (state.voiceSession?.runtimeMode === 'live' && state.voiceSession?.token) {
         try {
-          await connectLiveKit(state.voiceSession);
+          await connectLiveKit(state.voiceSession, preloadedTrack);
           state.voiceCallStatus = 'connected';
           state.voiceStatus = 'connected';
           voiceLog('outbound answer connected with issued LiveKit token', 'lime');
@@ -705,6 +814,7 @@ function bindVoiceEvents() {
           voiceLog('outbound LiveKit answer failed: ' + liveError.message, 'orange');
         }
       }
+      if (preloadedTrack) preloadedTrack.stop();
       state.runtimeMode = 'sandbox';
       state.voiceApiState = 'sandbox / simulated';
       voiceLog('answer fallback: ' + error.message, 'orange');
@@ -716,9 +826,9 @@ function bindVoiceEvents() {
   const reject = document.querySelector('[data-voice-reject]');
   if (reject) reject.addEventListener('click', async () => { if (voiceRuntimeUrl() && state.voiceSession?.sessionId) await fetch(voiceRuntimeEndpoint('/api/voice/end'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: state.voiceSession.sessionId, reason: 'rejected' }) }).catch(() => {}); state.voiceCallStatus = 'ended'; state.voiceStatus = 'ended'; voiceLog('outbound call rejected', 'orange'); render(); });
   const mute = document.querySelector('[data-voice-mute]');
-  if (mute) mute.addEventListener('click', () => { state.voiceMuted = !state.voiceMuted; voiceLog(state.voiceMuted ? 'microphone muted' : 'microphone unmuted', 'cyan'); render(); });
+  if (mute) mute.addEventListener('click', () => toggleLiveMute());
   const mic = document.querySelector('[data-voice-mic]');
-  if (mic) mic.addEventListener('click', () => startBrowserRecognition({ fallback: state.voiceAsrFallback }));
+  if (mic) mic.addEventListener('click', () => voiceRuntimeUrl() && state.voiceRoom ? ensureLiveMicrophone() : startBrowserRecognition({ fallback: state.voiceAsrFallback }));
   const end = document.querySelector('[data-voice-end]');
   if (end) end.addEventListener('click', async () => { if (state.voiceStatsTimer) { window.clearInterval(state.voiceStatsTimer); state.voiceStatsTimer = null; } if (state.voiceLocalTrack) { state.voiceLocalTrack.stop(); state.voiceLocalTrack = null; } if (state.voiceRoom) { state.voiceRoom.disconnect(); state.voiceRoom = null; } stopVoiceAnalyser(); if (state.voiceEventSocket) { state.voiceEventSocket.close(); state.voiceEventSocket = null; } if (voiceRuntimeUrl() && state.voiceSession?.sessionId) await fetch(voiceRuntimeEndpoint('/api/voice/end'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: state.voiceSession.sessionId, reason: 'user' }) }).catch(() => {}); loadSessionTrace(); state.voiceCallStatus = 'ended'; state.voiceStatus = 'ended'; voiceLog('call ended by user', 'orange'); render(); });
   const speak = document.querySelector('[data-voice-speak]');
