@@ -323,9 +323,11 @@ function base64ToBytes(value) {
 }
 function postRoomTraceEvent(event) {
   if (!voiceRuntimeUrl() || state.runtimeMode !== 'live' || !state.voiceSession?.sessionId || !event?.type) return Promise.resolve();
-  const request = () => fetch(voiceRuntimeEndpoint('/api/voice/session/' + encodeURIComponent(state.voiceSession.sessionId) + '/event'), {
+  const sessionId = state.voiceSession.sessionId;
+  const traceId = state.voiceSession.traceId;
+  const request = () => fetch(voiceRuntimeEndpoint('/api/voice/session/' + encodeURIComponent(sessionId) + '/event'), {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...event, traceId: state.voiceSession.traceId, sessionId: state.voiceSession.sessionId })
+    body: JSON.stringify({ ...event, traceId, sessionId })
   }).then((response) => {
     if (!response.ok) throw new Error('TRACE_WRITE_HTTP_' + response.status);
   });
