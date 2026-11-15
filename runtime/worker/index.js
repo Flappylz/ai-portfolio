@@ -4,13 +4,15 @@ const SCENARIOS = {
   football: { direction: 'outbound', voiceKey: 'ELEVENLABS_VOICE_ID_FOOTBALL', fallbackVoice: 'JBFqnCBsd6RMkjVDRZzb' }
 };
 
-// The worker keeps a short-lived in-memory trace for the public portfolio demo.
-// This is intentionally ephemeral: production persistence belongs in a Durable
-// Object or an external trace store and must never be presented as durable here.
+// The isolate cache keeps active sessions fast. TRACE_DB is the durable
+// cross-instance store provisioned by Sites. TRACE_KV remains supported for
+// environments that already expose a Cloudflare KV namespace.
 const sessions = new Map();
 const sockets = new Map();
 const isoNow = () => new Date().toISOString();
 const SESSION_TTL_MS = 15 * 60 * 1000;
+const TRACE_DB_TABLE = 'voice_trace_sessions';
+let traceDbSchemaPromise = null;
 const REQUEST_WINDOW_MS = 60 * 1000;
 const REQUEST_LIMIT = 12;
 const requestWindows = new Map();
@@ -121,21 +123,73 @@ function sessionPayload(session) {
   };
 }
 
-function traceSnapshot(session) {
-  return { session: sessionPayload(session), events: session.events, persistence: 'worker_memory' };
+function tracePersistence(env) {
+  if (env.TRACE_KV) return 'durable_kv';
+  if (env.TRACE_DB) return 'durable_d1';
+  return 'worker_memory';
+}
+
+function traceSnapshot(session, persistence = 'worker_memory') {
+  return { session: sessionPayload(session), events: session.events, persistence };
+}
+
+async function ensureTraceDb(env) {
+  if (!env.TRACE_DB) return false;
+  if (!traceDbSchemaPromise) {
+    traceDbSchemaPromise = env.TRACE_DB.prepare(
+      'CREATE TABLE IF NOT EXISTS ' + TRACE_DB_TABLE + ' (' +
+      'session_id TEXT PRIMARY KEY, ' +
+      'trace_id TEXT NOT NULL, ' +
+      'payload TEXT NOT NULL, ' +
+      'created_at TEXT NOT NULL, ' +
+      'updated_at TEXT NOT NULL)'
+    ).run().then(() => true).catch((error) => {
+      traceDbSchemaPromise = null;
+      throw error;
+    });
+  }
+  return traceDbSchemaPromise;
+}
+
+async function readTraceFromDb(sessionId, env) {
+  if (!env.TRACE_DB) return null;
+  await ensureTraceDb(env);
+  const row = await env.TRACE_DB
+    .prepare('SELECT payload FROM ' + TRACE_DB_TABLE + ' WHERE session_id = ?')
+    .bind(sessionId)
+    .first()
+    .catch(() => null);
+  if (!row?.payload) return null;
+  try { return JSON.parse(row.payload); } catch { return null; }
 }
 
 async function persistSession(session, env) {
-  if (!env.TRACE_KV || !session) return;
-  await env.TRACE_KV.put(`voice-trace:${session.sessionId}`, JSON.stringify({ ...traceSnapshot(session), persistence: 'durable_kv' }), { expirationTtl: Math.ceil(SESSION_TTL_MS / 1000) });
+  if (!session) return;
+  if (env.TRACE_KV) {
+    await env.TRACE_KV.put('voice-trace:' + session.sessionId, JSON.stringify(traceSnapshot(session, 'durable_kv')), { expirationTtl: Math.ceil(SESSION_TTL_MS / 1000) });
+    return;
+  }
+  if (!env.TRACE_DB) return;
+  await ensureTraceDb(env);
+  const payload = JSON.stringify(traceSnapshot(session, 'durable_d1'));
+  await env.TRACE_DB.prepare(
+    'INSERT INTO ' + TRACE_DB_TABLE + ' (session_id, trace_id, payload, created_at, updated_at) ' +
+    'VALUES (?, ?, ?, ?, ?) ' +
+    'ON CONFLICT(session_id) DO UPDATE SET ' +
+    'trace_id = excluded.trace_id, payload = excluded.payload, updated_at = excluded.updated_at'
+  ).bind(session.sessionId, session.traceId, payload, session.createdAt, isoNow()).run();
 }
 
 async function loadSession(sessionId, env) {
   pruneSessions();
   const inMemory = sessions.get(sessionId);
   if (inMemory) return inMemory;
-  if (!env.TRACE_KV) return null;
-  const stored = await env.TRACE_KV.get(`voice-trace:${sessionId}`, 'json').catch(() => null);
+  let stored = null;
+  if (env.TRACE_KV) {
+    stored = await env.TRACE_KV.get('voice-trace:' + sessionId, 'json').catch(() => null);
+  } else if (env.TRACE_DB) {
+    stored = await readTraceFromDb(sessionId, env);
+  }
   if (!stored?.session) return null;
   const session = { ...stored.session, id: stored.session.sessionId, createdAt: stored.session.createdAt, events: Array.isArray(stored.events) ? stored.events : [] };
   sessions.set(sessionId, session);
@@ -271,7 +325,13 @@ async function ingestEvent(request, env, sessionId) {
 }
 
 function traceResponse(session, env) {
-  return json({ session: sessionPayload(session), events: session.events, persistence: env.TRACE_KV ? 'durable_kv' : 'worker_memory', warning: env.TRACE_KV ? null : 'Trace resets when the worker isolate is recycled.' }, 200, env);
+  const persistence = tracePersistence(env);
+  return json({
+    session: sessionPayload(session),
+    events: session.events,
+    persistence,
+    warning: persistence === 'worker_memory' ? 'Trace resets when the worker isolate is recycled.' : null,
+  }, 200, env);
 }
 
 function responseText(payload) {
@@ -408,7 +468,7 @@ export default {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) });
     if (request.method === 'GET' && url.pathname === '/api/health') {
-      const body = { ok: true, service: 'voice-runtime-worker', config: { livekit: Boolean(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET && env.LIVEKIT_AGENT_ID), elevenlabs: Boolean(env.ELEVENLABS_API_KEY) } };
+      const body = { ok: true, service: 'voice-runtime-worker', config: { livekit: Boolean(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET && env.LIVEKIT_AGENT_ID), elevenlabs: Boolean(env.ELEVENLABS_API_KEY), traceStore: tracePersistence(env) } };
       if (url.searchParams.get('probe') === '1') body.elevenlabsProbe = await probeElevenLabs(env);
       return json(body, 200, env);
     }
@@ -422,10 +482,6 @@ export default {
       const sessionId = url.pathname.split('/').at(-2);
       const session = await loadSession(sessionId, env);
       if (session) return traceResponse(session, env);
-      if (env.TRACE_KV) {
-        const stored = await env.TRACE_KV.get(`voice-trace:${sessionId}`, 'json').catch(() => null);
-        if (stored) return json(stored, 200, env);
-      }
       return json({ error: 'SESSION_NOT_FOUND' }, 404, env);
     }
     if (url.pathname === '/api/voice/tts' && request.headers.get('Upgrade')?.toLowerCase() === 'websocket') return ttsSocket(request, env);
