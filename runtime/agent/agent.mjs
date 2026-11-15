@@ -213,7 +213,7 @@ export default defineAgent({
       modelName(meta, 'agentModel', env('LIVEKIT_LLM_MODEL', 'openai/gpt-4.1-mini'), 'LIVEKIT_LLM_MODEL'),
       'LIVEKIT_FAST_LLM_MODEL',
     );
-    const slowLlmModel = modelName(meta, 'slowModel', env('LIVEKIT_SLOW_LLM_MODEL', 'openai/gpt-5.6-sol'), 'LIVEKIT_SLOW_LLM_MODEL');
+    const slowLlmModel = modelName(meta, 'slowModel', env('LIVEKIT_SLOW_LLM_MODEL', 'openai/gpt-4.1-mini'), 'LIVEKIT_SLOW_LLM_MODEL');
     const deepTimeoutMs = numberEnv('LIVEKIT_DEEP_TIMEOUT_MS', 3200);
     const speculativeLookupEnabled = env('LIVEKIT_SPECULATIVE_LOOKUP', 'true') !== 'false';
     const slowReasoningEffort = ['none', 'minimal', 'low', 'medium', 'high'].includes(env('LIVEKIT_SLOW_REASONING_EFFORT', 'low'))
@@ -224,8 +224,13 @@ export default defineAgent({
       : env(`ELEVENLABS_VOICE_ID_${String(meta.scenario || 'carrier').toUpperCase()}`, 'JBFqnCBsd6RMkjVDRZzb');
     const elevenLabsKey = env('ELEVENLABS_API_KEY', env('ELEVEN_API_KEY'));
     const openaiKey = env('OPENAI_API_KEY');
-    const directFastModel = env('OPENAI_FAST_MODEL', normalizeOpenAIModel(fastLlmModel, 'gpt-4.1-mini'));
-    const directSlowModel = env('OPENAI_SLOW_MODEL', normalizeOpenAIModel(slowLlmModel, 'gpt-4.1-mini'));
+    const openAiModelAllowlist = new Set(['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini']);
+    const configuredFastModel = env('OPENAI_FAST_MODEL', 'gpt-4.1-mini');
+    const configuredSlowModel = env('OPENAI_SLOW_MODEL', 'gpt-4.1-mini');
+    const requestedFastModel = normalizeOpenAIModel(fastLlmModel, configuredFastModel);
+    const requestedSlowModel = normalizeOpenAIModel(slowLlmModel, configuredSlowModel);
+    const directFastModel = openAiModelAllowlist.has(requestedFastModel) ? requestedFastModel : configuredFastModel;
+    const directSlowModel = openAiModelAllowlist.has(requestedSlowModel) ? requestedSlowModel : configuredSlowModel;
     const directSttModel = env('OPENAI_STT_MODEL', normalizeOpenAISttModel(sttModel));
     const reportedFastModel = openaiKey ? `openai/${directFastModel}` : fastLlmModel;
     const reportedSlowModel = openaiKey ? `openai/${directSlowModel}` : slowLlmModel;

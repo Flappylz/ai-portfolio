@@ -17,7 +17,7 @@ const requestWindows = new Map();
 const TRACE_EVENT_TYPES = new Set(['agent_joined', 'listening', 'speech_started', 'speech_stopped', 'partial_transcript', 'final_transcript', 'knowledge_hit', 'tool_call', 'handoff', 'tts_started', 'tts_first_byte', 'tts_text_delta', 'tts_text', 'speaking', 'barge_in', 'interrupted', 'deep_started', 'deep_result', 'deep_result_used', 'deep_error', 'metrics', 'error', 'ended']);
 const resolveAgentModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_LLM_MODEL || 'openai/gpt-4.1-mini');
 const resolveFastModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_FAST_LLM_MODEL || env.LIVEKIT_LLM_MODEL || 'openai/gpt-4.1-mini');
-const resolveSlowModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_SLOW_LLM_MODEL || 'openai/gpt-5.6-sol');
+const resolveSlowModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_SLOW_LLM_MODEL || 'openai/gpt-4.1-mini');
 const resolveAsrModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_STT_MODEL || 'openai/gpt-live-transcribe');
 const resolveTtsModel = (requested, env) => String(requested || '').trim() && !String(requested).includes('sandbox') ? String(requested) : (env.ELEVENLABS_MODEL || 'eleven_flash_v2_5');
 const normalizeVoiceConfig = (input = {}) => ({
@@ -284,7 +284,7 @@ async function openAIRespond(request, env) {
   if (Number(request.headers.get('content-length') || 0) > 32768) return json({ error: 'REQUEST_TOO_LARGE' }, 413, env, request.headers.get('Origin') || '');
   if (!env.OPENAI_API_KEY) return json({ configured: false, verified: false, status: null, code: 'MISSING_SECRET' }, 503, env);
   const body = await request.json().catch(() => null);
-  const model = String(body?.model || env.OPENAI_MODEL || 'gpt-5.6-sol').trim();
+  const model = String(body?.model || env.OPENAI_MODEL || 'gpt-4.1-mini').trim();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
   try {

@@ -12,7 +12,7 @@ const created = await read(await worker.fetch(request('/api/voice/session', {
   body: JSON.stringify({ scenario: 'carrier', runtimeMode: 'sandbox', agentModel: 'gpt-5.6-sol', asrModel: 'Web Speech API / Chrome sandbox' })
 }), env));
 if (created.status !== 201 || created.body.session?.status !== 'dialing') throw new Error('worker sandbox session failed');
-if (created.body.session.agentModel !== 'openai/gpt-4.1-mini' || created.body.session.fastModel !== 'openai/gpt-4.1-mini' || created.body.session.slowModel !== 'openai/gpt-5.6-sol' || created.body.session.routing !== 'fast_voice+slow_validation' || created.body.session.asrModel !== 'openai/gpt-live-transcribe') throw new Error('worker model routing resolution failed');
+if (created.body.session.agentModel !== 'openai/gpt-4.1-mini' || created.body.session.fastModel !== 'openai/gpt-4.1-mini' || created.body.session.slowModel !== 'openai/gpt-4.1-mini' || created.body.session.routing !== 'fast_voice+slow_validation' || created.body.session.asrModel !== 'openai/gpt-live-transcribe') throw new Error('worker model routing resolution failed');
 
 const session = created.body.session;
 const event = await read(await worker.fetch(request(`/api/voice/session/${session.sessionId}/event`, {
