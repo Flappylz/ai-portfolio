@@ -557,3 +557,231 @@ em { color: var(--cyan); font-style: normal; }
 @media (max-width: 760px) {
   .voice-stage .caller-orb { flex: 0 0 176px; }
 }
+
+
+/* iPhone-style voice controls and delivery-grade settings */
+.voice-stage .call-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 14px;
+  min-height: 96px;
+  margin-top: auto;
+  padding: 18px 0 8px;
+}
+.voice-stage .call-action {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
+  padding: 0;
+  border-radius: 50%;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 1.1;
+  font-size: 12px !important;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
+}
+.voice-stage .call-action::before,
+.voice-stage .call-action::after {
+  display: none !important;
+  content: none !important;
+}
+.voice-stage .call-action.answer,
+.voice-stage .call-action.voice-input {
+  width: 92px;
+  height: 92px;
+  min-width: 92px;
+  font-size: 13px !important;
+  color: #fff;
+  background: #17191f;
+  border: 1px solid #17191f;
+  box-shadow: 0 14px 30px rgba(23,25,31,.22);
+}
+.voice-stage .call-action.answer:hover,
+.voice-stage .call-action.voice-input:hover {
+  background: #08090d;
+  border-color: #08090d;
+  box-shadow: 0 18px 34px rgba(23,25,31,.26);
+}
+.voice-stage .call-action.caption-toggle {
+  color: #25303c;
+  background: rgba(255,255,255,.92);
+  border: 1px solid #5fe5d5;
+  box-shadow: 0 8px 22px rgba(50,75,115,.1);
+}
+.voice-stage .call-action.mute {
+  color: #25303c;
+  background: rgba(255,255,255,.88);
+  border: 1px solid #d8dce5;
+  box-shadow: 0 8px 22px rgba(50,75,115,.08);
+}
+.voice-stage .call-action.mute.active {
+  color: #0b6670;
+  background: rgba(95,229,213,.14);
+  border-color: #5fe5d5;
+}
+.voice-stage .call-action.end,
+.voice-stage .call-action.reject {
+  color: #fff;
+  background: #17191f;
+  border: 1px solid #17191f;
+  box-shadow: 0 10px 24px rgba(23,25,31,.18);
+}
+.voice-stage .call-action.end:hover,
+.voice-stage .call-action.reject:hover {
+  background: #000;
+  border-color: #000;
+}
+.voice-stage .call-action:hover {
+  transform: translateY(-2px);
+}
+.voice-stage .call-action:focus-visible {
+  outline: 3px solid rgba(84,116,223,.35);
+  outline-offset: 4px;
+}
+.voice-stage .call-action.reconnect {
+  display: none;
+}
+.voice-stage[data-direction="outbound"] .call-action.answer:not(.reconnect) {
+  background: #17191f;
+}
+.voice-context-panel .voice-settings {
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255,255,255,.025);
+}
+.voice-context-panel .voice-settings > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 13px;
+  color: #ecf3f5;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.voice-context-panel .voice-settings > summary span {
+  color: var(--quiet);
+  font: 9px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.voice-context-panel .settings-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 0 10px 10px;
+}
+.voice-context-panel .setting-group,
+.voice-context-panel .advanced-settings {
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  background: rgba(5,12,19,.44);
+}
+.voice-context-panel .setting-group label {
+  gap: 6px;
+  margin-top: 11px;
+  color: #9aa8b8;
+  font-size: 10px;
+  line-height: 1.25;
+}
+.voice-context-panel .setting-group label:first-child {
+  margin-top: 0;
+}
+.voice-context-panel .setting-group select,
+.voice-context-panel .setting-group input[type="text"],
+.voice-context-panel .setting-group input[type="number"],
+.voice-context-panel .setting-group input:not([type]) {
+  min-height: 36px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  padding: 8px 10px;
+  color: #f2f6f7;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(9,18,26,.86);
+  text-align: left;
+}
+.voice-context-panel .setting-group input[type="range"] {
+  height: 4px;
+}
+.voice-context-panel .toggle-field {
+  min-height: 34px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.voice-context-panel .toggle-field:last-of-type {
+  border-bottom: 0;
+}
+.voice-context-panel .toggle-field input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  width: 42px;
+  height: 24px;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #344250;
+  cursor: pointer;
+  transition: background .18s ease;
+}
+.voice-context-panel .toggle-field input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #eaf2f3;
+  box-shadow: 0 1px 4px rgba(0,0,0,.26);
+  transition: transform .18s ease;
+}
+.voice-context-panel .toggle-field input[type="checkbox"]:checked {
+  background: #35cdbd;
+}
+.voice-context-panel .toggle-field input[type="checkbox"]:checked::after {
+  transform: translateX(18px);
+}
+.voice-context-panel .settings-section-label {
+  margin-top: 0;
+  color: #c8f8ef;
+}
+.voice-context-panel .settings-subsection {
+  margin-top: 15px;
+  border-top-color: rgba(255,255,255,.1);
+}
+.voice-context-panel .settings-summary {
+  border-radius: 10px;
+}
+.voice-context-panel .detail-link-primary {
+  margin: 10px;
+  border-radius: 10px;
+}
+@media (max-width: 760px) {
+  .voice-stage .call-actions {
+    gap: 10px;
+    min-height: 84px;
+    padding-top: 14px;
+  }
+  .voice-stage .call-action {
+    width: 58px;
+    height: 58px;
+    min-width: 58px;
+    font-size: 11px !important;
+  }
+  .voice-stage .call-action.answer,
+  .voice-stage .call-action.voice-input {
+    width: 78px;
+    height: 78px;
+    min-width: 78px;
+    font-size: 12px !important;
+  }
+}

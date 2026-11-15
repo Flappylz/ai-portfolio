@@ -21,10 +21,14 @@ const resolveSlowModel = (requested, env) => String(requested || '').includes('/
 const resolveAsrModel = (requested, env) => String(requested || '').includes('/') && !String(requested).includes('sandbox') && !String(requested).includes('Chrome') ? String(requested) : (env.LIVEKIT_STT_MODEL || 'openai/gpt-live-transcribe');
 const resolveTtsModel = (requested, env) => String(requested || '').trim() && !String(requested).includes('sandbox') ? String(requested) : (env.ELEVENLABS_MODEL || 'eleven_flash_v2_5');
 const normalizeVoiceConfig = (input = {}) => ({
+  interactionType: input.interactionType === 'voice_assistant' ? 'voice_assistant' : 'voice_call',
   vad: ['silero_vad', 'server_vad', 'semantic_vad'].includes(input.vad) ? input.vad : 'silero_vad',
   noiseReduction: input.noiseReduction !== false,
   allowInterruption: input.allowInterruption !== false,
   silenceStrategy: Boolean(input.silenceStrategy),
+  voiceprintRecognition: Boolean(input.voiceprintRecognition),
+  genderRecognition: Boolean(input.genderRecognition),
+  addresseeAwareFiltering: Boolean(input.addresseeAwareFiltering),
   hangupStrategy: Boolean(input.hangupStrategy),
   startWithVoiceCall: Boolean(input.startWithVoiceCall),
   userMessagePosition: input.userMessagePosition === 'bottom' ? 'bottom' : 'right',

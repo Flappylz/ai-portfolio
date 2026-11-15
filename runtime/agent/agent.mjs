@@ -227,6 +227,9 @@ export default defineAgent({
     const directFastModel = env('OPENAI_FAST_MODEL', normalizeOpenAIModel(fastLlmModel, 'gpt-4.1-mini'));
     const directSlowModel = env('OPENAI_SLOW_MODEL', normalizeOpenAIModel(slowLlmModel, 'gpt-4.1-mini'));
     const directSttModel = env('OPENAI_STT_MODEL', normalizeOpenAISttModel(sttModel));
+    const reportedFastModel = openaiKey ? `openai/${directFastModel}` : fastLlmModel;
+    const reportedSlowModel = openaiKey ? `openai/${directSlowModel}` : slowLlmModel;
+    const reportedSttModel = openaiKey ? `openai/${directSttModel}` : sttModel;
     const traceId = meta.traceId || `agent_${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`;
     const publish = async (type, data = {}) => {
       const event = { type, traceId, sessionId: meta.sessionId || null, scenario: meta.scenario || 'carrier', ts: new Date().toISOString(), ...data };
@@ -283,16 +286,16 @@ export default defineAgent({
         modelOptions: { reasoning_effort: slowReasoningEffort },
       });
     slowLlm.on('error', (event) => {
-      publish('deep_error', { model: slowLlmModel, code: event?.error?.message || 'slow_llm_error' }).catch(() => {});
+      publish('deep_error', { model: reportedSlowModel, code: event?.error?.message || 'slow_llm_error' }).catch(() => {});
     });
     slowLlm.on('metrics_collected', (metric) => {
       publish('metrics', {
         lane: 'slow',
-        model: slowLlmModel,
+        model: reportedSlowModel,
         metrics: {
           slowLlmMs: metric.durationMs,
           slowLlmTtftMs: metric.ttftMs,
-          slowLlmModel,
+          slowLlmModel: reportedSlowModel,
           slowLlmLane: 'slow',
         },
       }).catch(() => {});
@@ -317,7 +320,7 @@ export default defineAgent({
           requestId,
           trigger,
           lane: 'slow',
-          model: slowLlmModel,
+          model: reportedSlowModel,
           query: normalized,
           speculative: trigger === 'partial',
         });
@@ -351,7 +354,7 @@ export default defineAgent({
             ...parsed,
             requestId,
             query: normalized,
-            model: slowLlmModel,
+            model: reportedSlowModel,
             latencyMs,
             createdAt: Date.now(),
             trigger,
@@ -359,7 +362,7 @@ export default defineAgent({
           slowLane.last = result;
           await publish('deep_result', {
             requestId,
-            model: slowLlmModel,
+            model: reportedSlowModel,
             trigger,
             text: result.answer,
             answer: result.answer,
@@ -369,7 +372,7 @@ export default defineAgent({
             confidence: result.confidence,
             shouldHandoff: result.shouldHandoff,
             latencyMs,
-            metrics: { slowLlmMs: latencyMs, slowLlmModel, slowLlmLane: 'slow' },
+            metrics: { slowLlmMs: latencyMs, slowLlmModel: reportedSlowModel, slowLlmLane: 'slow' },
           });
           if (trigger !== 'partial') {
             const context = `${baseInstructions}\n慢车道最近一次已确认结果（仅供下一轮回答使用，不要向用户解释内部过程）：${JSON.stringify({ intent: result.intent, facts: result.facts, answer: result.answer, risk: result.risk, shouldHandoff: result.shouldHandoff })}`;
@@ -381,7 +384,7 @@ export default defineAgent({
         }
       })().catch(async (error) => {
         const latencyMs = Math.max(1, Math.round(performance.now() - startedAt));
-        await publish('deep_error', { requestId, model: slowLlmModel, trigger, code: error?.message || 'SLOW_LANE_ERROR', latencyMs });
+        await publish('deep_error', { requestId, model: reportedSlowModel, trigger, code: error?.message || 'SLOW_LANE_ERROR', latencyMs });
         return null;
       }).finally(() => slowLane.pending.delete(normalized));
       slowLane.pending.set(normalized, task);
@@ -444,7 +447,7 @@ export default defineAgent({
         text: event.transcript,
         role: 'user',
         isFinal: event.isFinal,
-        asrModel: sttModel,
+        asrModel: reportedSttModel,
       });
       if (speculativeLookupEnabled && shouldUseDeepLane(event.transcript)) {
         const nowMs = Date.now();
@@ -480,7 +483,7 @@ export default defineAgent({
       } else if (metric.type === 'stt_metrics') {
         publish('metrics', { metrics: { asrMs: metric.durationMs, asrAudioMs: metric.audioDurationMs } });
       } else if (metric.type === 'llm_metrics') {
-        publish('metrics', { lane: 'fast', model: fastLlmModel, metrics: { llmMs: metric.durationMs, llmTtftMs: metric.ttftMs, llmLane: 'fast', llmModel: fastLlmModel } });
+        publish('metrics', { lane: 'fast', model: reportedFastModel, metrics: { llmMs: metric.durationMs, llmTtftMs: metric.ttftMs, llmLane: 'fast', llmModel: reportedFastModel } });
       } else {
         publish('metrics', { metrics: metric });
       }
@@ -497,13 +500,14 @@ export default defineAgent({
     await session.start({ agent, room: ctx.room, record: { audio: false, traces: true, logs: true, transcript: true, redaction: true } });
     await ctx.connect();
     await publish('agent_joined', {
-      agentModel: fastLlmModel,
-      fastModel: fastLlmModel,
-      slowModel: slowLlmModel,
+      agentModel: reportedFastModel,
+      fastModel: reportedFastModel,
+      slowModel: reportedSlowModel,
       routing: 'fast_voice+slow_validation',
-      asrModel: sttModel,
+      asrModel: reportedSttModel,
       ttsModel: tts.model,
       ttsProvider: elevenLabsKey ? 'elevenlabs' : 'livekit_inference',
+      modelSource: openaiKey ? 'openai_direct' : 'livekit_inference',
       voiceConfig,
     });
     await publish('tts_text', { text: scenario.greetingText, transcript: scenario.greetingText, role: 'assistant', source: 'static_greeting' });
