@@ -112,6 +112,7 @@ function sessionPayload(session) {
     room: session.runtimeMode === 'live' ? session.room : null,
     token: session.token || null,
     status: session.status,
+    createdAt: session.createdAt,
     voiceId: session.voiceId,
     agentModel: session.agentModel,
     fastModel: session.fastModel,
