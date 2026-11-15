@@ -196,7 +196,7 @@ async function loadSession(sessionId, env) {
     stored = await readTraceFromDb(sessionId, env);
   }
   if (!stored?.session) return null;
-  const session = { ...stored.session, id: stored.session.sessionId, createdAt: stored.session.createdAt, events: Array.isArray(stored.events) ? stored.events : [] };
+  const session = { ...stored.session, id: stored.session.sessionId, createdAt: stored.session.createdAt || stored.createdAt || isoNow(), events: Array.isArray(stored.events) ? stored.events : [] };
   sessions.set(sessionId, session);
   return session;
 }
