@@ -126,7 +126,7 @@ function resolveSlowModel(requested) {
   const value = String(requested || '').trim();
   return value && !value.includes('sandbox') && !value.includes('Chrome') && value.includes('/')
     ? value
-    : (process.env.LIVEKIT_SLOW_LLM_MODEL || 'openai/gpt-5.6-sol');
+    : (process.env.LIVEKIT_SLOW_LLM_MODEL || 'openai/gpt-4.1-mini');
 }
 
 function resolveAsrModel(requested) {
