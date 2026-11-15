@@ -156,12 +156,16 @@ async function readTraceFromDb(sessionId, env) {
   if (!env.TRACE_DB) return null;
   await ensureTraceDb(env);
   const row = await env.TRACE_DB
-    .prepare('SELECT payload FROM ' + TRACE_DB_TABLE + ' WHERE session_id = ?')
+    .prepare('SELECT payload, created_at FROM ' + TRACE_DB_TABLE + ' WHERE session_id = ?')
     .bind(sessionId)
     .first()
     .catch(() => null);
   if (!row?.payload) return null;
-  try { return JSON.parse(row.payload); } catch { return null; }
+  try {
+    const snapshot = JSON.parse(row.payload);
+    if (snapshot?.session && !snapshot.session.createdAt && row.created_at) snapshot.session.createdAt = row.created_at;
+    return snapshot;
+  } catch { return null; }
 }
 
 async function persistSession(session, env) {
