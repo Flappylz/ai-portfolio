@@ -28,7 +28,9 @@ npm run build
 
 - GitHub Pages：`https://flappylz.github.io/ai-portfolio/`
 - Codex Sites：`https://fengliangze-ai-portfolio.wellsfung.chatgpt.site/`
-- Voice runtime：`https://fengliangze-ai-voice-runtime.wellsfung.chatgpt.site/`（服务端 TTS / Session API；LiveKit 凭据未配置时返回 Sandbox 降级）
+- Voice runtime：`https://fengliangze-ai-voice-runtime-kv.760871196.workers.dev/`（Cloudflare Worker edge proxy；Trace 使用真实 Workers KV，语音会话转发到 LiveKit / ElevenLabs runtime，失败时前端明确降级 Sandbox）
+
+本轮视觉与交互依赖保持轻量，使用 IBM Plex Sans / Mono 字体和已审核的 shadcn/ui 设计规则。页面仍是 Vanilla JavaScript，未引入 React 组件树或未使用的 UI 依赖。
 
 ## 生产运行时
 

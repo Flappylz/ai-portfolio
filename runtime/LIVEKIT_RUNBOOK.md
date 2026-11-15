@@ -116,13 +116,13 @@ LIVEKIT_AGENT_ID
 ## 6. 验收顺序
 
 \`\`\`bash
-curl -sS 'https://fengliangze-ai-voice-runtime.wellsfung.chatgpt.site/api/health?probe=1'
+curl -sS 'https://fengliangze-ai-voice-runtime-kv.760871196.workers.dev/api/health?probe=1'
 \`\`\`
 
 ElevenLabs 探针应该返回 \`verified:true\`。LiveKit 配好后：
 
 \`\`\`bash
-curl -sS -X POST \\+  'https://fengliangze-ai-voice-runtime.wellsfung.chatgpt.site/api/voice/session' \\+  -H 'content-type: application/json' \\+  --data '{"scenario":"airline","direction":"inbound","language":"zh","runtimeMode":"live"}'
+curl -sS -X POST \\+  'https://fengliangze-ai-voice-runtime-kv.760871196.workers.dev/api/voice/session' \\+  -H 'content-type: application/json' \\+  --data '{"scenario":"airline","direction":"inbound","language":"zh","runtimeMode":"live"}'
 \`\`\`
 
 返回体必须同时有：

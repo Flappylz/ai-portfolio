@@ -15,7 +15,7 @@
   --max: 1240px;
   color: var(--ink);
   background: var(--bg);
-  font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "IBM Plex Sans Variable", "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-synthesis: none;
 }
 * { box-sizing: border-box; }
