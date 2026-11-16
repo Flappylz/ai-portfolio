@@ -297,6 +297,7 @@ async function elevenLabsSpeak(text) {
         if (state.voiceAudio) state.voiceAudio.pause();
         state.voiceAudio = new Audio(URL.createObjectURL(blob));
         state.voiceAudio.volume = Number(state.voiceVolume);
+        state.voiceAudio.playbackRate = Number(state.voicePitch);
         state.voiceAudio.onended = () => { state.voiceStatus = 'connected'; render(true); };
         state.voiceAudio.onerror = () => { state.voiceStatus = 'connected'; voiceLog('audio playback error', 'orange'); render(true); };
         addVoiceAnalyserForElement(state.voiceAudio);
@@ -547,6 +548,7 @@ async function connectLiveKit(session, preloadedTrack = null) {
       const media = track.attach();
       media.setAttribute('data-livekit-audio', 'true');
       media.autoplay = true;
+      media.volume = Number(state.voiceVolume);
       document.body.appendChild(media);
       addVoiceAnalyserForElement(media);
       voiceLog('remote audio track attached', 'lime');
@@ -938,7 +940,7 @@ function bindVoiceEvents() {
   const preview = document.querySelector('[data-voice-preview]');
   if (preview) preview.addEventListener('click', () => elevenLabsSpeak(state.voicePreviewText || activeVoiceScenario().welcome || activeVoiceScenario().reply));
   const sliderMap = [['[data-voice-stability]', 'voiceStability', 'stability'], ['[data-voice-similarity]', 'voiceSimilarity', 'similarity'], ['[data-voice-style]', 'voiceStyle', 'style'], ['[data-voice-speed]', 'voiceSpeed', 'speed'], ['[data-voice-pitch]', 'voicePitch', 'pitch'], ['[data-voice-volume]', 'voiceVolume', 'volume']];
-  sliderMap.forEach(([selector, key, output]) => { const el = document.querySelector(selector); if (el) el.addEventListener('input', (event) => { state[key] = event.target.value; const target = document.querySelector('[data-output="' + output + '"]'); if (target) target.textContent = event.target.value; }); });
+  sliderMap.forEach(([selector, key, output]) => { const el = document.querySelector(selector); if (el) el.addEventListener('input', (event) => { state[key] = event.target.value; const target = document.querySelector('[data-output="' + output + '"]'); if (target) target.textContent = event.target.value; if (key === 'voiceVolume') { document.querySelectorAll('[data-livekit-audio]').forEach((audio) => { audio.volume = Number(state.voiceVolume); }); if (state.voiceAudio) state.voiceAudio.volume = Number(state.voiceVolume); } if (key === 'voicePitch' && state.voiceAudio) state.voiceAudio.playbackRate = Number(state.voicePitch); }); });
   ensureOutboundSession();
 }
 
