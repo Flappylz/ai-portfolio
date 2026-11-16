@@ -4,9 +4,9 @@ const SCENARIOS = {
   football: { direction: 'outbound', voiceKey: 'ELEVENLABS_VOICE_ID_FOOTBALL', fallbackVoice: 'JBFqnCBsd6RMkjVDRZzb' }
 };
 
-// The isolate cache keeps active sessions fast. TRACE_DB is the durable
-// cross-instance store provisioned by Sites. TRACE_KV remains supported for
-// environments that already expose a Cloudflare KV namespace.
+// The isolate cache keeps active sessions fast. TRACE_KV is the durable
+// cross-instance store for the public runtime. TRACE_DB remains a fallback
+// for the upstream runtime until its own binding is migrated.
 const sessions = new Map();
 const sockets = new Map();
 const isoNow = () => new Date().toISOString();
@@ -39,6 +39,7 @@ const normalizeVoiceConfig = (input = {}) => ({
   tone: String(input.tone || 'neutral').slice(0, 32),
   emotion: String(input.emotion || 'neutral').slice(0, 32),
   pitch: Number.isFinite(Number(input.pitch)) ? Number(input.pitch) : 1,
+  volume: Number.isFinite(Number(input.volume)) ? Math.max(0, Math.min(1, Number(input.volume))) : 1,
   stability: Number.isFinite(Number(input.stability)) ? Number(input.stability) : 0.5,
   similarity: Number.isFinite(Number(input.similarity)) ? Number(input.similarity) : 0.75,
   style: Number.isFinite(Number(input.style)) ? Number(input.style) : 0.2,

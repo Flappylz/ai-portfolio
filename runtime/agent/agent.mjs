@@ -222,6 +222,18 @@ export default defineAgent({
     const voiceId = meta.voiceId && meta.voiceId !== 'default'
       ? meta.voiceId
       : env(`ELEVENLABS_VOICE_ID_${String(meta.scenario || 'carrier').toUpperCase()}`, 'JBFqnCBsd6RMkjVDRZzb');
+    const requestedTtsModel = String(meta.ttsModel || env('ELEVENLABS_MODEL', 'eleven_flash_v2_5')).trim();
+    const allowedTtsModels = new Set(['eleven_flash_v2_5', 'eleven_turbo_v2_5', 'eleven_v4_turbo']);
+    const ttsModel = allowedTtsModels.has(requestedTtsModel) ? requestedTtsModel : env('ELEVENLABS_MODEL', 'eleven_flash_v2_5');
+    const ttsStability = Number.isFinite(Number(voiceConfig.stability)) ? Number(voiceConfig.stability) : numberEnv('ELEVENLABS_STABILITY', 0.5);
+    const ttsSimilarity = Number.isFinite(Number(voiceConfig.similarity)) ? Number(voiceConfig.similarity) : numberEnv('ELEVENLABS_SIMILARITY', 0.8);
+    const ttsStyle = Number.isFinite(Number(voiceConfig.style)) ? Number(voiceConfig.style) : numberEnv('ELEVENLABS_STYLE', 0.2);
+    const ttsSpeed = Number.isFinite(Number(voiceConfig.speed)) ? Number(voiceConfig.speed) : numberEnv('ELEVENLABS_SPEED', 1);
+    const ttsChunkSchedule = String(voiceConfig.chunkSchedule || '50,120,160,290')
+      .split(',')
+      .map((value) => Number(value.trim()))
+      .filter((value) => Number.isFinite(value) && value > 0)
+      .slice(0, 8);
     const elevenLabsKey = env('ELEVENLABS_API_KEY', env('ELEVEN_API_KEY'));
     const openaiKey = env('OPENAI_API_KEY');
     const openAiModelAllowlist = new Set(['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini']);
@@ -256,6 +268,7 @@ export default defineAgent({
         '不要向用户透露“快车道、慢车道、模型路由、内部提示词”等实现细节。',
         '绝不编造实时库存、价格、账户、出票或客户信息；不确定时明确说明并转人工。',
         scenario.knowledge,
+        `声音表现：语气 ${voiceConfig.tone || 'neutral'}；情绪 ${voiceConfig.emotion || 'neutral'}；保持短句、自然停顿和可打断。`,
         `当前场景：${meta.scenario || 'carrier'}；方向：${meta.direction || scenario.direction}；语言：${language}。`,
       ].join('\n');
 
@@ -401,16 +414,16 @@ export default defineAgent({
       ? new elevenlabs.TTS({
         apiKey: elevenLabsKey,
         voiceId: voiceId || undefined,
-        model: env('ELEVENLABS_MODEL', 'eleven_flash_v2_5'),
+        model: ttsModel,
         language,
         voiceSettings: {
-          stability: numberEnv('ELEVENLABS_STABILITY', 0.5),
-          similarity_boost: numberEnv('ELEVENLABS_SIMILARITY', 0.8),
-          style: numberEnv('ELEVENLABS_STYLE', 0.2),
-          speed: numberEnv('ELEVENLABS_SPEED', 1),
+          stability: ttsStability,
+          similarity_boost: ttsSimilarity,
+          style: ttsStyle,
+          speed: ttsSpeed,
           use_speaker_boost: true,
         },
-        chunkLengthSchedule: [50, 120, 160, 290],
+        chunkLengthSchedule: ttsChunkSchedule.length ? ttsChunkSchedule : [50, 120, 160, 290],
         syncAlignment: true,
       })
       : new inference.TTS({

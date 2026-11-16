@@ -4,6 +4,12 @@
   "main": "worker/cloudflare-proxy.js",
   "compatibility_date": "2026-11-15",
   "workers_dev": true,
+  "kv_namespaces": [
+    {
+      "binding": "TRACE_KV",
+      "id": "3a1cfa1ea0554d1db9266a3940225ff3"
+    }
+  ],
   "vars": {
     "CORS_ORIGIN": "https://flappylz.github.io,https://fengliangze-ai-portfolio.wellsfung.chatgpt.site,http://127.0.0.1:5173,http://localhost:5173",
     "UPSTREAM_RUNTIME_URL": "https://fengliangze-ai-voice-runtime.wellsfung.chatgpt.site"
