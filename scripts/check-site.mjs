@@ -17,7 +17,7 @@ for (const file of files) {
 const main = await readFile('src/main.js', 'utf8');
 const index = await readFile('index.html', 'utf8');
 const siteText = main + index;
-for (const required of ['apps', 'appLauncher', 'voiceScenarioView', 'voice-details', 'runtimeMode', 'voiceCallStatus', 'LiveKit WebRTC', 'sandbox / simulated', 'hashchange', 'github.com/Flappylz', 'speechSynthesis', 'partial_transcript', 'tts_first_byte', 'data-voice-captions', 'data-voice-model', 'data-voice-agent-model', 'data-voice-asr-model', 'data-voice-tone', 'data-voice-pitch', 'data-voice-volume', 'data-voice-preview', 'data-voice-style', 'data-voice-output-format', 'data-voice-chunk-schedule', 'data-voice-barge-in', 'voiceInsights', 'eleven_turbo_v2_5', 'fengliangze-ai-voice-runtime-kv.760871196.workers.dev']) {
+for (const required of ['apps', 'appLauncher', 'voiceScenarioView', 'voice-details', 'runtimeMode', 'voiceCallStatus', 'LiveKit WebRTC', 'sandbox / simulated', 'hashchange', 'github.com/Flappylz', 'speechSynthesis', 'partial_transcript', 'tts_first_byte', 'data-voice-captions', 'data-voice-model', 'data-voice-agent-model', 'data-voice-asr-model', 'data-voice-tone', 'data-voice-pitch', 'data-voice-volume', 'data-voice-preview', 'data-voice-style', 'data-voice-output-format', 'data-voice-chunk-schedule', 'data-voice-barge-in', 'voiceInsights', 'eleven_turbo_v2_5', 'fengliangze-ai-voice-runtime.wellsfung.chatgpt.site']) {
   if (!siteText.includes(required)) {
     console.error(`Missing required site behavior: ${required}`);
     failed = true;
