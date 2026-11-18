@@ -92,6 +92,8 @@ function normalizeVoiceConfig(input, models) {
   const endpointMinMs = boundedInteger(draft.endpointMinMs, 100, 3000, 400);
   return {
     ...settings,
+    deepTimeoutMs: boundedInteger(draft.deepTimeoutMs, 500, 12000, 5000),
+    speculativeLookup: draft.speculativeLookup !== false,
     interactionType: 'voice_call',
     vad: 'silero_vad',
     vadThreshold: boundedNumber(draft.vadThreshold, 0.1, 0.9, 0.5),

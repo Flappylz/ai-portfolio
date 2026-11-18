@@ -227,7 +227,8 @@ function voiceScenarioView(id) {
   const messages = state.voiceConversation.length ? state.voiceConversation.map((item) => '<div class="voice-message ' + item.role + '"><span>' + (item.role === 'user' ? 'YOU' : 'AGENT') + '<small>' + esc(item.time) + '</small></span><p>' + esc(item.text) + '</p></div>').join('') : '<div class="voice-empty">' + (scenario.direction === 'outbound' ? '接听后，Agent 会主动开始提问。' : '拨号后，Agent 会先播放欢迎语。') + '</div>';
   const logs = state.voiceLogs.slice(-6).reverse().map((item) => '<li><time>' + item.time + '</time><b class="event-dot ' + item.tone + '"></b><span>' + item.label + '</span></li>').join('');
   const steps = scenario.workflow.map((step, index) => '<div class="voice-step ' + (state.voiceStep >= index + 1 ? 'active' : '') + '"><b>0' + (index + 1) + '</b><span>' + step + '</span></div>').join('');
-  const knowledge = scenario.knowledge.map((item) => '<li><div><b>' + item[0] + '</b><small>' + item[1] + '</small></div><em>' + item[2] + '</em></li>').join('');
+  const knowledge = scenario.knowledge.map((item) => '<li><div><b>' + item[0] + '</b><small>' + item[1] + '</small></div>' +
+    (isDemo() ? '' : '<em>' + item[2] + '</em>') + '</li>').join('');
   const metric = (value, unit) => value === null ? '<b class="metric-null">—</b>' : '<b>' + value + '<small>' + unit + '</small></b>';
   const sessionLabel = state.voiceSession?.sessionId ? state.voiceSession.sessionId.slice(0, 14) : 'not started';
   const insightCards = [['情绪', state.voiceInsights.emotion, 'emotion'], ['年龄', state.voiceInsights.age, 'age'], ['性别', state.voiceInsights.gender, 'gender']].map((item) => '<div class="insight-card"><span>' + item[0] + '</span><b>' + esc(item[1]) + '</b><small>' + (state.voiceInsights.confidence ? state.voiceInsights.confidence + '% confidence' : 'SANDBOX / DEMO') + '</small></div>').join('');
@@ -478,6 +479,11 @@ async function finishVoiceCall(reason, update = true) {
   state.voiceLocalTrack = null;
   const room = state.voiceRoom;
   state.voiceRoom = null;
+  document.querySelectorAll('[data-livekit-audio]').forEach((element) => {
+    element.pause();
+    element.srcObject = null;
+    element.remove();
+  });
   void room?.disconnect();
   state.voiceEventSocket?.close();
   state.voiceEventSocket = null;
@@ -760,7 +766,7 @@ async function connectLiveKit(session, preloadedTrack = null, attempt = callAtte
     render(true);
   });
   room.on(RoomEvent.TrackSubscribed, (track) => {
-    if (track.kind === 'audio') {
+    if (state.voiceRoom === room && track.kind === 'audio') {
       const media = track.attach();
       media.setAttribute('data-livekit-audio', 'true');
       media.autoplay = true;
@@ -781,7 +787,7 @@ async function connectLiveKit(session, preloadedTrack = null, attempt = callAtte
     try { applyRuntimeEvent(JSON.parse(new TextDecoder().decode(payload)), 'room'); } catch {}
   });
   await room.connect(session.serverUrl, session.token);
-  if (isDemo() && attempt !== callAttempt) { await room.disconnect(); return; }
+  if (isDemo() && attempt !== callAttempt) { preloadedTrack?.stop(); await room.disconnect(); return; }
   if (isDemo()) demoCallStartedAt = Date.now();
   let localTrack = preloadedTrack;
   try {

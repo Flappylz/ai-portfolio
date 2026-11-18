@@ -31,7 +31,7 @@ export const newVoiceSettings = {
   slowServiceTier: 'default',
   fastTemperature: 1,
   slowTemperature: 1,
-  deepTimeoutMs: 3200,
+  deepTimeoutMs: 5000,
   speculativeLookup: true,
   asrLanguage: 'auto',
   asrPrompt: '',
@@ -44,7 +44,7 @@ export const newVoiceSettings = {
   enableSsmlParsing: false,
   applyTextNormalization: 'auto',
   applyLanguageTextNormalization: false,
-  preferredAlignment: 'normalized',
+  preferredAlignment: 'original',
   pronunciationDictionaries: [],
   ttsInactivityTimeoutSec: 60,
   useSpeakerBoost: false,
@@ -162,8 +162,8 @@ export function createVoiceSettings({ endpoint, read, change, scenario }) {
         config.pronunciationDictionaries.map((item) => item.pronunciation_dictionary_id + '/' + item.version_id).join(', '), 800),
       select('文本规范化', 'config.applyTextNormalization', config.applyTextNormalization, [['auto','自动'],['on','开启'],['off','关闭']]),
       model?.transport === 'websocket' && toggle('语言专属的文本规范化', 'config.applyLanguageTextNormalization', config.applyLanguageTextNormalization),
-      model?.transport === 'dialogue-websocket' && select('字幕时间对齐', 'config.preferredAlignment', config.preferredAlignment,
-        [['normalized','规范化文本'],['original','原始文本']]),
+      model?.transport === 'websocket' && select('字幕来源', 'config.preferredAlignment', config.preferredAlignment,
+        [['original','回复原文'],['normalized','服务商规范化文本']]),
       number('TTS 流空闲超时（秒）', 'config.ttsInactivityTimeoutSec', config.ttsInactivityTimeoutSec, 5, 180),
       select('说话语气（提示词）', 'config.tone', config.tone, [['neutral','自然'], ['warm','温暖'], ['professional','专业'], ['energetic','活跃']]),
       select('表达方式（提示词）', 'config.emotion', config.emotion, [['neutral','默认'], ['calm','平静'], ['happy','积极'], ['empathetic','共情']])
@@ -214,8 +214,8 @@ export function createVoiceSettings({ endpoint, read, change, scenario }) {
           number('打断所需最少词数', 'config.interruptionMinWords', config.interruptionMinWords, 0, 10) : '') +
         toggle('静音时询问是否还在', 'config.silenceStrategy', config.silenceStrategy) +
         (config.silenceStrategy ? number('静音提醒等待（秒）', 'config.userAwayTimeoutSec', config.userAwayTimeoutSec, 5, 120) : '') +
-        toggle('到时自动挂断', 'config.hangupStrategy', config.hangupStrategy) +
-        (config.hangupStrategy ? number('最长通话（秒）', 'config.maxCallTime', config.maxCallTime, 30, 7200) : '')) + '</div>';
+        toggle('持续静音后挂断', 'config.hangupStrategy', config.hangupStrategy) +
+        number('最长通话（秒）', 'config.maxCallTime', config.maxCallTime, 30, 7200)) + '</div>';
     dialog.querySelectorAll('[data-settings-group]').forEach((element) => { element.open = groups.has(element.dataset.settingsGroup); });
     if (scroll) dialog.querySelector('.voice-settings-content').scrollTop = scroll;
     if (activeKey) dialog.querySelector('[data-settings-key="' + activeKey + '"]')?.focus({ preventScroll: true });

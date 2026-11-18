@@ -252,7 +252,7 @@ class StreamingTranscriptAgent extends voice.Agent {
                 text: piece,
                 transcript,
                 role: 'assistant',
-                source: 'tts_aligned_transcript',
+                source: 'tts_transcript',
               });
             }
             controller.enqueue(chunk);
@@ -293,8 +293,8 @@ export default defineAgent({
       'LIVEKIT_FAST_LLM_MODEL',
     );
     const slowLlmModel = modelName(meta, 'slowModel', `openai/${DEFAULT_LLM}`, 'LIVEKIT_SLOW_LLM_MODEL');
-    const deepTimeoutMs = numberEnv('LIVEKIT_DEEP_TIMEOUT_MS', 3200);
-    const speculativeLookupEnabled = env('LIVEKIT_SPECULATIVE_LOOKUP', 'true') !== 'false';
+    const deepTimeoutMs = bounded(voiceConfig.deepTimeoutMs, numberEnv('LIVEKIT_DEEP_TIMEOUT_MS', 5000), 500, 12000);
+    const speculativeLookupEnabled = voiceConfig.speculativeLookup ?? (env('LIVEKIT_SPECULATIVE_LOOKUP', 'true') !== 'false');
     const voiceId = /^[a-zA-Z0-9_-]{1,128}$/.test(meta.voiceId || '') && meta.voiceId !== 'default'
       ? meta.voiceId
       : env(`ELEVENLABS_VOICE_ID_${String(meta.scenario || 'carrier').toUpperCase()}`, 'JBFqnCBsd6RMkjVDRZzb');
@@ -348,7 +348,7 @@ export default defineAgent({
     const agent = new StreamingTranscriptAgent({
       instructions: baseInstructions,
       tools: [createKnowledgeTool(scenario, publish, slowLane), createHandoffTool(publish)],
-      useTtsAlignedTranscript: true,
+      useTtsAlignedTranscript: voiceConfig.preferredAlignment === 'normalized' && !/^eleven_v[34]/.test(ttsModel),
     }, publish);
 
     const fastLlm = openaiKey
@@ -535,7 +535,7 @@ export default defineAgent({
       stt,
       llm: fastLlm,
       tts,
-      useTtsAlignedTranscript: true,
+      useTtsAlignedTranscript: voiceConfig.preferredAlignment === 'normalized' && !/^eleven_v[34]/.test(ttsModel),
       turnHandling: {
         turnDetection: 'vad',
         preemptiveGeneration: { enabled: true },
