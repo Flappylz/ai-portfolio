@@ -81,6 +81,12 @@ function footballReply(turns) {
   return null;
 }
 
+// The caller can pause after a greeting or a lead-in. Keep listening and
+// let recognition continue rather than competing with the rest of the question.
+export function isChineseLeadIn(text, language) {
+  return /^zh(?:-|$)/i.test(language) && /^(?:你[好]|您好|请问|我想(?:问|咨询)(?:一下)?|您好我想问一下|那个|就是|嗯+|啊+)[。！？！？.!?，,\s]*$/.test(text.trim());
+}
+
 export function groundedReply({ scenario, language, turns }) {
   if (!/^zh(?:-|$)/i.test(language)) return null;
   const text = turns.at(-1)?.trim() || '';

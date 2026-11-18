@@ -49,7 +49,7 @@ export const newVoiceSettings = {
   ttsInactivityTimeoutSec: 60,
   useSpeakerBoost: false,
   autoMode: false,
-  vadMinSilenceMs: 210,
+  vadMinSilenceMs: 420,
   vadMinSpeechMs: 100,
   vadThreshold: 0.5,
   vadPrefixPaddingMs: 500,

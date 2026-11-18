@@ -11,7 +11,7 @@ import {
 import * as elevenlabs from '@livekit/agents-plugin-elevenlabs';
 import * as openai from '@livekit/agents-plugin-openai';
 import * as silero from '@livekit/agents-plugin-silero';
-import { groundedReply } from './grounded-replies.mjs';
+import { groundedReply, isChineseLeadIn } from './grounded-replies.mjs';
 
 const SCENARIOS = {
   carrier: {
@@ -232,10 +232,11 @@ function createHandoffTool(publish) {
 }
 
 class StreamingTranscriptAgent extends voice.Agent {
-  constructor(options, publish, ground) {
+  constructor(options, publish, ground, language) {
     super(options);
     this.publishVoiceEvent = publish;
     this.ground = ground;
+    this.language = language;
   }
 
   replyFromHistory(chatCtx, newMessage) {
@@ -264,7 +265,9 @@ class StreamingTranscriptAgent extends voice.Agent {
 
   async llmNode(chatCtx, tools, settings) {
     const last = chatCtx.items.at(-1);
-    const reply = last?.type === 'message' && last.role === 'user' ? this.replyFromHistory(chatCtx) : null;
+    const isUserTurn = last?.type === 'message' && last.role === 'user';
+    if (this.ground && isUserTurn && isChineseLeadIn(last.textContent || '', this.language)) return null;
+    const reply = isUserTurn ? this.replyFromHistory(chatCtx) : null;
     if (!reply) return super.llmNode(chatCtx, tools, settings);
     // Feed an informative sentence through the usual playout, interruption and
     // transcription pipeline. The default model remains the generative route.
@@ -397,7 +400,7 @@ export default defineAgent({
       instructions: baseInstructions,
       tools: [createKnowledgeTool(scenario, publish, slowLane), createHandoffTool(publish)],
       useTtsAlignedTranscript: voiceConfig.preferredAlignment === 'normalized' && !/^eleven_v[34]/.test(ttsModel),
-    }, publish, ground);
+    }, publish, ground, language);
 
     const fastLlm = openaiKey
       ? new openai.responses.LLM(fastOptions)

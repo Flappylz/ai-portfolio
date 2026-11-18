@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { groundedReply } from './grounded-replies.mjs';
+import { groundedReply, isChineseLeadIn } from './grounded-replies.mjs';
 
 const reply = (scenario, ...turns) => groundedReply({ scenario, language: 'zh', turns });
 
@@ -30,4 +30,10 @@ test('football gives one question per committed answer and scores at five', () =
 test('uncovered languages and unclear turns continue through the default model', () => {
   assert.equal(groundedReply({ scenario: 'airline', language: 'en', turns: ['How much is baggage?'] }), null);
   assert.equal(reply('carrier', '你好。'), null);
+});
+
+test('a brief greeting does not interrupt a paused follow-up question', () => {
+  assert.equal(isChineseLeadIn('你好。', 'zh'), true);
+  assert.equal(isChineseLeadIn('我想咨询一下。', 'zh'), true);
+  assert.equal(isChineseLeadIn('你好，我想问一下流量收费。', 'zh'), false);
 });
