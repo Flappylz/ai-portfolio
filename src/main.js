@@ -1,6 +1,7 @@
 import './styles.css';
 import '@fontsource-variable/ibm-plex-sans';
 import '@fontsource/ibm-plex-mono';
+import { createVoiceSettings, newVoiceSettings } from './voice-settings.js';
 import { apps, voiceScenarios } from './data/projects.js';
 import { ConnectionState, Room, RoomEvent, createLocalAudioTrack } from 'livekit-client';
 
@@ -13,6 +14,26 @@ const state = { modeId: 'discovery', status: 'draft', score: 0, input: '', respo
   { time: '09:41:11', label: 'agent schema loaded', tone: 'cyan' }
 ] };
 
+const defaultDialogueModel = 'openai/gpt-6.1-sol';
+const demoPreferences = {
+  language: 'zh', voiceId: 'default', fastModel: defaultDialogueModel, slowModel: defaultDialogueModel,
+  asrModel: 'openai/gpt-live-transcribe', ttsModel: 'eleven_flash_v2_5',
+  voiceConfig: {
+    ...newVoiceSettings, volume: 1, speed: 1, stability: .5, similarity: .75, style: 0,
+    tone: 'neutral', emotion: 'neutral', noiseReduction: true,
+    outputFormat: 'pcm_22050', chunkSchedule: '50,120,160,290'
+  }
+};
+let demoRoute = false;
+let selectedMobilePanel = 'call';
+let demoCallStartedAt = 0;
+let demoCallEndedAt = 0;
+let activeModels = null;
+let agentConfirmed = false;
+let callAttempt = 0;
+const traceBatches = new Map();
+const isDemo = () => demoRoute;
+
 const esc = (value) => String(value || '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 const asset = (path) => import.meta.env.BASE_URL + path;
 const voiceRuntimeUrl = () => import.meta.env.VITE_VOICE_RUNTIME_URL || window.__VOICE_RUNTIME_URL || '';
@@ -24,6 +45,51 @@ const voiceRuntimeSocket = (path) => {
   return url.toString();
 };
 const extLink = (href, label, className) => '<a class="' + (className || '') + '" href="' + esc(href) + '" target="_blank" rel="noreferrer">' + label + '</a>';
+
+const settingsPanel = createVoiceSettings({
+  endpoint: voiceRuntimeEndpoint,
+  read: () => demoPreferences,
+  scenario: () => activeVoiceScenario().id,
+  change(key, value) {
+    if (key.startsWith('config.')) demoPreferences.voiceConfig[key.slice(7)] = value;
+    else demoPreferences[key] = value;
+    if (key === 'config.volume') {
+      state.voiceVolume = value;
+      document.querySelectorAll('[data-livekit-audio]').forEach((audio) => { audio.volume = value; });
+    }
+    if (!['connecting', 'connected'].includes(state.voiceCallStatus)) render(true);
+  }
+});
+
+function demoCallDuration() {
+  const seconds = demoCallStartedAt ? Math.floor(((demoCallEndedAt || Date.now()) - demoCallStartedAt) / 1000) : 0;
+  return [Math.floor(seconds / 60), seconds % 60].map((value) => String(value).padStart(2, '0')).join(':');
+}
+
+function resetDemoCall() {
+  state.voiceApiState = 'ready';
+  state.voiceQualityPath = 'fast voice → slow validation';
+  demoCallStartedAt = 0;
+  demoCallEndedAt = 0;
+  activeModels = null;
+  agentConfirmed = false;
+  state.voiceSession = null;
+  state.voiceMuted = false;
+  state.voiceConversation = [];
+  state.voiceMessages = [];
+  state.voiceLogs = [];
+  state.voiceLogQuery = '';
+  state.voiceLogScope = 'all';
+  state.voiceTraceEvents = [];
+  state.voiceTraceStatus = 'not loaded';
+  state.voiceTraceWriteQueue = Promise.resolve();
+  state.voiceStep = 0;
+  state.voicePartial = '';
+  state.voiceTtsPartial = '';
+  state.voiceTtsText = '';
+  state.voiceLatency = { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null };
+  state.voiceMetrics = { rtt: null, jitter: null, packetLoss: null, interrupt: null };
+}
 
 function header() {
   return '<header class="site-header"><a class="brand" href="#/" aria-label="返回交互式AI语音DEMO"><span class="brand-mark"><i></i><i></i></span><span><strong>交互式AI语音DEMO</strong><small>LIVE VOICE WORKBENCH</small></span></a><nav class="site-nav" aria-label="主导航"><a class="nav-apps" href="#/apps">Demo</a>' + extLink(githubUrl, 'GitHub', 'nav-external') + '<a class="nav-cta" href="mailto:' + email + '">联系我</a></nav></header>';
@@ -154,6 +220,10 @@ function resetVoiceState(id) {
 function voiceScenarioView(id) {
   resetVoiceState(id);
   const scenario = activeVoiceScenario();
+  const fastModel = isDemo() ? activeModels?.fastModel || demoPreferences.fastModel : state.voiceFastModel || state.voiceAgentModel;
+  const slowModel = isDemo() ? activeModels?.slowModel || demoPreferences.slowModel : state.voiceSlowModel;
+  const asrModel = isDemo() ? activeModels?.asrModel || demoPreferences.asrModel : state.voiceAsrModel;
+  const ttsModel = isDemo() ? activeModels?.ttsModel || demoPreferences.ttsModel : state.voiceModel;
   const messages = state.voiceConversation.length ? state.voiceConversation.map((item) => '<div class="voice-message ' + item.role + '"><span>' + (item.role === 'user' ? 'YOU' : 'AGENT') + '<small>' + esc(item.time) + '</small></span><p>' + esc(item.text) + '</p></div>').join('') : '<div class="voice-empty">' + (scenario.direction === 'outbound' ? '接听后，Agent 会主动开始提问。' : '拨号后，Agent 会先播放欢迎语。') + '</div>';
   const logs = state.voiceLogs.slice(-6).reverse().map((item) => '<li><time>' + item.time + '</time><b class="event-dot ' + item.tone + '"></b><span>' + item.label + '</span></li>').join('');
   const steps = scenario.workflow.map((step, index) => '<div class="voice-step ' + (state.voiceStep >= index + 1 ? 'active' : '') + '"><b>0' + (index + 1) + '</b><span>' + step + '</span></div>').join('');
@@ -172,12 +242,18 @@ function voiceScenarioView(id) {
     ['07', '收尾归档', 'Agent', 'Trace Store', '完整会话、指标与错误原因'],
   ];
   const sequenceDiagram = '<div class="sequence-block"><div class="sequence-block-head"><div><span class="section-label">DETAILED SEQUENCE</span><h3>一通电话如何跑完。</h3></div><span>trace-first / event-driven</span></div><div class="sequence-lanes"><span>STEP</span><span>EVENT</span><span>FROM</span><span>TO</span><span>EVIDENCE</span></div>' + sequenceRows.map((row) => '<div class="sequence-row"><b>' + row[0] + '</b><strong>' + row[1] + '</strong><span>' + row[2] + '</span><i>→</i><span>' + row[3] + '</span><small>' + row[4] + '</small></div>').join('') + '</div>';
-  const detailPages = '<section class="voice-detail-pages" id="voice-details"><article class="voice-detail-page"><div><span class="section-label">SYSTEM ARCHITECTURE / ' + scenario.title + '</span><h2>从通话到可交付的实时链路。</h2><p>下滑查看当前 Demo 的完整链路。首屏负责体验，下面负责证明系统如何工作。</p></div><div class="detail-flow">' + architecture.map((item, index) => '<div><b>0' + (index + 1) + '</b><span>' + item + '</span></div>').join('<i>→</i>') + '</div>' + sequenceDiagram + '<div class="detail-evidence-grid"><div><span>AGENT</span><b>' + esc(state.voiceAgentModel) + '</b><small>当前对话模型</small></div><div><span>ASR</span><b>' + esc(state.voiceAsrModel) + '</b><small>当前转写模型</small></div><div><span>TTS</span><b>' + esc(state.voiceModel) + '</b><small>ElevenLabs 流式模型</small></div><div><span>TRANSPORT</span><b>LiveKit WebRTC</b><small>WebSocket TTS fallback</small></div><div><span>STATUS</span><b>' + state.voiceCallStatus.toUpperCase() + '</b><small>' + state.runtimeMode.toUpperCase() + '</small></div><div><span>TRACE</span><b>' + esc(state.voiceSession?.traceId || sessionLabel) + '</b><small>事件可追溯</small></div></div></article><article class="voice-detail-page"><div><span class="section-label">KNOWLEDGE + BUSINESS FLOW</span><h2>业务流程和知识命中放在同一页。</h2></div><div class="detail-two-col"><div><h3>业务流程</h3><ol class="business-flow">' + scenario.workflow.map((item, index) => '<li><b>0' + (index + 1) + '</b><span>' + item + '</span></li>').join('') + '</ol></div><div><h3>知识库</h3><ul class="detail-knowledge">' + knowledge + '</ul></div></div><div class="detail-boundary"><span>BOUNDARY</span><p>公开数据为模拟场景；真实票价、套餐、库存、客户资料和生产权限不会进入前端。失败时保留已确认信息，并进入文本降级或人工转接。</p></div></article></section>';
+  const detailPages = '<section class="voice-detail-pages" id="voice-details"><article class="voice-detail-page"><div><span class="section-label">SYSTEM ARCHITECTURE / ' + scenario.title + '</span><h2>从通话到可交付的实时链路。</h2><p>下滑查看当前 Demo 的完整链路。首屏负责体验，下面负责证明系统如何工作。</p></div><div class="detail-flow">' + architecture.map((item, index) => '<div><b>0' + (index + 1) + '</b><span>' + item + '</span></div>').join('<i>→</i>') + '</div>' + sequenceDiagram + '<div class="detail-evidence-grid"><div><span>AGENT</span><b>' + esc(fastModel) + '</b><small>当前对话模型</small></div><div><span>ASR</span><b>' + esc(asrModel) + '</b><small>当前转写模型</small></div><div><span>TTS</span><b>' + esc(ttsModel) + '</b><small>ElevenLabs 流式模型</small></div><div><span>TRANSPORT</span><b>LiveKit WebRTC</b><small>WebSocket TTS fallback</small></div><div><span>STATUS</span><b>' + state.voiceCallStatus.toUpperCase() + '</b><small>' + state.runtimeMode.toUpperCase() + '</small></div><div><span>TRACE</span><b>' + esc(state.voiceSession?.traceId || sessionLabel) + '</b><small>事件可追溯</small></div></div></article><article class="voice-detail-page"><div><span class="section-label">KNOWLEDGE + BUSINESS FLOW</span><h2>业务流程和知识命中放在同一页。</h2></div><div class="detail-two-col"><div><h3>业务流程</h3><ol class="business-flow">' + scenario.workflow.map((item, index) => '<li><b>0' + (index + 1) + '</b><span>' + item + '</span></li>').join('') + '</ol></div><div><h3>知识库</h3><ul class="detail-knowledge">' + knowledge + '</ul></div></div><div class="detail-boundary"><span>BOUNDARY</span><p>公开数据为模拟场景；真实票价、套餐、库存、客户资料和生产权限不会进入前端。失败时保留已确认信息，并进入文本降级或人工转接。</p></div></article></section>';
   const latestMessage = [...state.voiceMessages].reverse()[0];
   const liveCaptionText = state.voicePartial || state.voiceTtsPartial || state.voiceTtsText || latestMessage?.text || '';
   const liveCaptionRole = state.voicePartial ? 'YOU · ASR PARTIAL' : (state.voiceTtsPartial || state.voiceTtsText || latestMessage?.role === 'assistant' ? 'AGENT · LIVE CAPTION' : 'LIVE CAPTION');
-  const liveCaption = state.voiceSubtitleVisible ? '<div class="live-subtitle ' + (liveCaptionText ? 'has-text' : 'placeholder') + '" role="status" aria-live="polite"><span>' + liveCaptionRole + '</span><p>' + esc(liveCaptionText || '说话时，实时字幕会显示在这里') + '</p></div>' : '';
-  const transcriptPanel = state.voiceSubtitleVisible ? '<div class="voice-transcript"><div class="transcript-head"><span>ASR / TTS TRANSCRIPT · ' + state.voiceConversation.length + ' TURNS</span><b>' + state.voiceCallStatus.toUpperCase() + '</b></div><div class="transcript-layer partial"><span>ASR PARTIAL / LIVE</span><p>' + esc(state.voicePartial || '等待用户说话…') + '</p></div><div class="conversation-thread" aria-live="polite">' + messages + '</div><div class="transcript-layer tts"><span>TTS PLAYBACK / LIVE</span><p>' + esc(state.voiceTtsPartial || state.voiceTtsText || '等待 Agent 播报…') + '</p></div></div>' : '<div class="subtitle-hidden">字幕已隐藏。你仍可以在右侧日志与指标面板查看事件。</div>';
+  const captionRow = (who, text, placeholder, type) =>
+    '<div class="live-subtitle ' + type + (text ? ' has-text' : ' placeholder') + '"><span>' + who + '</span><p>' + esc(text || placeholder) + '</p></div>';
+  const latestUser = state.voiceConversation.findLast((item) => item.role === 'user')?.text;
+  const demoCaptions = '<div class="voice-captions-area" aria-label="双向实时字幕">' +
+    captionRow('你' + (state.voicePartial ? ' · 正在转写' : ''), state.voicePartial || latestUser, '你的话会实时转写', 'user') +
+    captionRow('语音助手', state.voiceTtsPartial || state.voiceTtsText, '助手的播报会在这里显示', 'assistant') + '</div>';
+  const liveCaption = state.voiceSubtitleVisible && isDemo() ? demoCaptions : state.voiceSubtitleVisible ? '<div class="live-subtitle ' + (liveCaptionText ? 'has-text' : 'placeholder') + '" role="status" aria-live="polite"><span>' + liveCaptionRole + '</span><p>' + esc(liveCaptionText || '说话时，实时字幕会显示在这里') + '</p></div>' : '';
+  const transcriptPanel = state.voiceSubtitleVisible ? '<div class="voice-transcript"><div class="transcript-head"><span>' + (isDemo() ? '完整通话记录' : 'ASR / TTS TRANSCRIPT') + ' · ' + state.voiceConversation.length + ' TURNS</span><b>' + state.voiceCallStatus.toUpperCase() + '</b></div><div class="transcript-layer partial"><span>ASR PARTIAL / LIVE</span><p>' + esc(state.voicePartial || '等待用户说话…') + '</p></div><div class="conversation-thread" aria-live="polite">' + messages + '</div><div class="transcript-layer tts"><span>TTS PLAYBACK / LIVE</span><p>' + esc(state.voiceTtsPartial || state.voiceTtsText || '等待 Agent 播报…') + '</p></div></div>' : '<div class="subtitle-hidden">字幕已隐藏。你仍可以在右侧日志与指标面板查看事件。</div>';
   const agentAvatar = '<div class="agent-identity"><div class="agent-avatar ' + scenario.accent + '">' + scenario.title.slice(0, 1) + '</div><div><b>' + esc(scenario.agentName || scenario.title) + '</b><small>' + esc(scenario.agentRole || 'Voice Agent') + '</small></div></div>';
   const option = (value, current, label) => '<option value="' + esc(value) + '"' + (current === value ? ' selected' : '') + '>' + label + '</option>';
   const settingsDisclosure = (title, hint, body, open = false) => '<details class="settings-disclosure"' + (open ? ' open' : '') + '><summary><span>' + title + '</span><small>' + hint + '</small><b>⌄</b></summary><div class="settings-disclosure-body">' + body + '</div></details>';
@@ -220,7 +296,7 @@ function voiceScenarioView(id) {
       '<label>Max Call Time<input type="number" min="30" max="7200" step="30" value="' + state.voiceMaxCallTime + '" data-voice-max-time><small>seconds</small></label>') +
     '<div class="settings-delivery-note"><span>DELIVERY CONTROL</span><p>LiveKit WebRTC、ElevenLabs streaming 和可查询 Trace 会随短期 session 配置发送到 runtime。</p></div></div>';
   const settings = baseSettings;
-  const traceSource = state.voiceTraceEvents.length ? state.voiceTraceEvents : state.voiceLogs.map((item) => ({ type: 'ui', ts: item.time, label: item.label, tone: item.tone }));
+  const traceSource = state.voiceTraceEvents.length ? state.voiceTraceEvents : isDemo() && state.voiceSession ? traceBatches.get(state.voiceSession.sessionId)?.display || [] : state.voiceLogs.map((item) => ({ type: 'ui', ts: item.time, label: item.label, tone: item.tone }));
   const traceQuery = state.voiceLogQuery.trim().toLowerCase();
   const filteredTrace = traceSource.filter((event) => {
     const scopeMatch = state.voiceLogScope === 'all' || event.type === state.voiceLogScope;
@@ -228,15 +304,38 @@ function voiceScenarioView(id) {
     return scopeMatch && (!traceQuery || haystack.includes(traceQuery));
   });
   const traceRows = filteredTrace.slice().reverse().map((event) => '<li><time>' + esc(traceEventTime(event)) + '</time><b class="event-dot ' + (event.type === 'error' ? 'orange' : event.type === 'ended' ? 'quiet' : 'cyan') + '"></b><span>' + esc(traceEventLabel(event)) + '</span></li>').join('') || '<li class="trace-empty">没有匹配的事件</li>';
-  const tracePanel = '<details class="observe-detail trace-query-panel" open><summary>SESSION LOG QUERY <span>' + filteredTrace.length + ' / ' + traceSource.length + '</span></summary><div class="trace-query-tools"><input type="search" placeholder="搜索事件、文本或错误码" value="' + esc(state.voiceLogQuery) + '" data-voice-log-query><select data-voice-log-scope><option value="all" ' + (state.voiceLogScope === 'all' ? 'selected' : '') + '>全部事件</option><option value="partial_transcript" ' + (state.voiceLogScope === 'partial_transcript' ? 'selected' : '') + '>ASR partial</option><option value="final_transcript" ' + (state.voiceLogScope === 'final_transcript' ? 'selected' : '') + '>ASR final</option><option value="tts_text" ' + (state.voiceLogScope === 'tts_text' ? 'selected' : '') + '>TTS text</option><option value="knowledge_hit" ' + (state.voiceLogScope === 'knowledge_hit' ? 'selected' : '') + '>Knowledge</option><option value="error" ' + (state.voiceLogScope === 'error' ? 'selected' : '') + '>Error</option></select><button type="button" class="trace-refresh" data-voice-trace-load ' + (!state.voiceSession?.sessionId ? 'disabled' : '') + '>刷新 Trace</button></div><div class="trace-query-status">' + esc(state.voiceTraceStatus) + ' · trace ' + esc(state.voiceSession?.traceId || 'not started') + '</div><ul class="voice-log trace-query-results">' + traceRows + '</ul></details>';
-  const conversationArchive = '<details class="observe-detail conversation-archive" open><summary>FULL CONVERSATION <span>' + state.voiceConversation.length + ' turns</span></summary><div class="archive-meta">ASR final + TTS committed · 按时间顺序保留整段会话</div><div class="archive-thread">' + messages + '</div></details>';
-  const callActive = ['connecting', 'connected', 'error'].includes(state.voiceCallStatus);
-  const micStatus = state.voiceLocalTrack ? '麦克风已开启' : state.voiceApiState.includes('microphone') ? '等待麦克风权限' : '拨号时自动申请麦克风';
+  const tracePanel = '<details class="observe-detail trace-query-panel" open><summary>' + (isDemo() ? '会话日志' : 'SESSION LOG QUERY') + ' <span>' + filteredTrace.length + ' / ' + traceSource.length + '</span></summary><div class="trace-query-tools"><input type="search" placeholder="搜索事件、文本或错误码" value="' + esc(state.voiceLogQuery) + '" data-voice-log-query><select data-voice-log-scope><option value="all" ' + (state.voiceLogScope === 'all' ? 'selected' : '') + '>全部事件</option><option value="partial_transcript" ' + (state.voiceLogScope === 'partial_transcript' ? 'selected' : '') + '>ASR partial</option><option value="final_transcript" ' + (state.voiceLogScope === 'final_transcript' ? 'selected' : '') + '>ASR final</option><option value="tts_text" ' + (state.voiceLogScope === 'tts_text' ? 'selected' : '') + '>TTS text</option><option value="knowledge_hit" ' + (state.voiceLogScope === 'knowledge_hit' ? 'selected' : '') + '>Knowledge</option><option value="error" ' + (state.voiceLogScope === 'error' ? 'selected' : '') + '>Error</option></select><button type="button" class="trace-refresh" data-voice-trace-load ' + (!state.voiceSession?.sessionId ? 'disabled' : '') + '>刷新 Trace</button></div><div class="trace-query-status">' + esc(state.voiceTraceStatus) + ' · trace ' + esc(state.voiceSession?.traceId || 'not started') + '</div><ul class="voice-log trace-query-results">' + traceRows + '</ul></details>';
+  const conversationArchive = '<details class="observe-detail conversation-archive" open><summary>' + (isDemo() ? '完整对话' : 'FULL CONVERSATION') + ' <span>' + state.voiceConversation.length + ' turns</span></summary><div class="archive-meta">ASR final + TTS committed · 按时间顺序保留整段会话</div><div class="archive-thread">' + messages + '</div></details>';
+  const callActive = isDemo() ? ['connecting', 'connected'].includes(state.voiceCallStatus) || Boolean(state.voiceRoom) : ['connecting', 'connected', 'error'].includes(state.voiceCallStatus);
+  const micStatus = state.voiceLocalTrack
+    ? (isDemo() && state.voiceMuted ? '麦克风已静音' : '麦克风已开启')
+    : isDemo() && state.voiceCallStatus === 'ended' ? '麦克风已关闭'
+    : state.voiceApiState.includes('microphone') ? '等待麦克风权限' : '拨号时自动申请麦克风';
   const muteButton = callActive ? '<button class="call-action mute ' + (state.voiceMuted ? 'active' : '') + '" type="button" data-voice-mute aria-pressed="' + state.voiceMuted + '" aria-label="' + (state.voiceMuted ? '取消静音' : '静音') + '">' + (state.voiceMuted ? '取消静音' : '静音') + '</button>' : '';
   const endButton = callActive ? '<button class="call-action end" type="button" data-voice-end aria-label="结束通话">结束</button>' : '';
-  const callButton = scenario.direction === 'outbound' ? '<button class="call-action answer ' + (state.voiceCallStatus === 'connected' ? 'reconnect' : '') + '" type="button" data-voice-answer aria-label="' + (state.voiceCallStatus === 'ringing' ? '接听来电' : state.voiceCallStatus === 'ended' ? '再次来电' : '已接听') + '">' + (state.voiceCallStatus === 'ringing' ? '接听' : state.voiceCallStatus === 'ended' ? '重拨' : '已接听') + '</button><button class="call-action reject ' + (state.voiceCallStatus === 'ringing' ? '' : 'reconnect') + '" type="button" data-voice-reject aria-label="拒接来电">拒接</button>' : '<button class="call-action answer ' + (state.voiceCallStatus === 'connected' || state.voiceCallStatus === 'connecting' ? 'reconnect' : '') + '" type="button" data-voice-call aria-label="' + (state.voiceCallStatus === 'idle' || state.voiceCallStatus === 'ended' ? '开始拨号' : '重新连接') + '">' + (state.voiceCallStatus === 'idle' || state.voiceCallStatus === 'ended' ? '拨号' : '重连') + '</button>';
-  const callHeadline = scenario.direction === 'outbound' && state.voiceCallStatus === 'ringing' ? '有一通语音来电' : state.voiceStatus === 'listening' ? '正在听你说' : state.voiceStatus === 'thinking' ? '正在整理回答' : state.voiceStatus === 'speaking' ? 'Agent 正在播报' : state.voiceCallStatus === 'connected' ? '通话已连接，开始说话' : state.voiceCallStatus === 'connecting' ? '正在建立安全连接' : state.voiceCallStatus === 'error' ? '连接异常，已切换降级体验' : state.voiceCallStatus === 'ended' ? '通话已结束' : '准备建立通话';
-  return shell('<section class="voice-screen section-pad" data-direction="' + scenario.direction + '"><div class="voice-screen-head"><div><span class="section-label">INTERACTIVE AI VOICE DEMO / ' + scenario.direction.toUpperCase() + '</span><h1>' + scenario.title + '</h1><p>' + scenario.subtitle + '</p></div><div class="voice-top-actions"><span class="runtime-chip ' + state.runtimeMode + '">' + state.runtimeMode.toUpperCase() + (state.runtimeMode === 'sandbox' ? ' / SIMULATED' : '') + '</span><div class="scenario-tabs" role="tablist" aria-label="语音场景">' + voiceScenarios.map((item) => '<a role="tab" aria-selected="' + (item.id === scenario.id) + '" class="' + (item.id === scenario.id ? 'selected' : '') + '" href="#/apps/voice?scenario=' + item.id + '">' + item.title + '</a>').join('') + '</div></div></div><div class="voice-console"><aside class="voice-context-panel"><div class="panel-title"><span>SCENARIO</span><b>' + scenario.direction.toUpperCase() + '</b></div><div class="context-intro"><span class="scenario-icon">' + scenario.title.slice(0, 1) + '</span><div><h2>' + scenario.title + '</h2><p>默认音色：' + esc(scenario.defaultVoice || 'server preset') + '</p></div></div><div class="context-meta"><span>SESSION</span><b>' + esc(sessionLabel) + '</b><span>TRANSPORT</span><b>LiveKit WebRTC</b><span>TTS MODEL</span><b>' + esc(state.voiceModel) + '</b><span>FAST MODEL</span><b>' + esc(state.voiceFastModel || state.voiceAgentModel) + '</b><span>SLOW MODEL</span><b>' + esc(state.voiceSlowModel) + '</b><span>ASR</span><b>' + esc(state.voiceAsrModel) + '</b><span>VOICE</span><b>' + esc(state.voiceVoice === 'default' ? 'server default' : state.voiceVoice) + '</b></div><div class="panel-title workflow-title"><span>WORKFLOW</span><b>' + state.voiceStep + '/' + scenario.workflow.length + '</b></div><div class="voice-workflow compact">' + steps + '</div><details class="voice-settings compact-settings"><summary>语音配置 <span>语言 / 音色 / 参数</span></summary>' + settings + '</details><a class="detail-link detail-link-primary" href="#voice-details">查看 Demo 详情 ↗</a></aside><section class="voice-stage"><div class="stage-top"><div>' + agentAvatar + '<span class="mini-label">VOICE CALL</span><b>' + (scenario.direction === 'outbound' ? 'Agent 主动来电' : '用户主动拨号') + '</b></div><span class="voice-state ' + state.voiceStatus + '"><i></i>' + state.voiceStatus.toUpperCase() + '</span></div><div class="call-session-strip"><span>' + (state.voiceCallStatus === 'idle' ? 'READY TO CONNECT' : 'WEBRTC / LIVEKIT') + '</span><b>' + (state.voiceCallStatus === 'connected' ? 'CONNECTED' : state.voiceCallStatus.toUpperCase()) + '</b><small>trace ' + esc(state.voiceSession?.traceId || sessionLabel) + '</small></div><div class="caller-orb ' + state.voiceCallStatus + ' ' + state.voiceStatus + '">' + scenario.title.slice(0, 1) + '</div><div class="call-wave ' + state.voiceStatus + '" data-audio-state="' + state.voiceStatus + '" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>' + liveCaption + '<strong role="status" aria-live="polite">' + callHeadline + '</strong><div class="call-actions" role="group" aria-label="通话控制"><button class="call-action caption-toggle" type="button" data-voice-captions aria-pressed="' + state.voiceSubtitleVisible + '" aria-label="' + (state.voiceSubtitleVisible ? '隐藏字幕' : '显示字幕') + '">' + (state.voiceSubtitleVisible ? '字幕开' : '字幕关') + '</button>' + callButton + muteButton + endButton + '</div><small>' + micStatus + ' · ASR: ' + esc(state.voiceAsrModel) + ' · ' + state.voiceApiState + '</small>' + transcriptPanel + '</section>' + '<aside class="voice-observe-panel">' + tracePanel + conversationArchive + '<div class="panel-title"><span>REAL-TIME METRICS</span><b>' + state.voiceCallStatus.toUpperCase() + ' · ' + (state.runtimeMode === 'sandbox' ? 'SANDBOX' : 'LIVE') + '</b></div><div class="current-model-card"><span>MODEL ROUTING</span><div class="model-pair"><div><small>FAST / VOICE</small><b>' + esc(state.voiceFastModel || state.voiceAgentModel) + '</b></div><div><small>SLOW / VALIDATE</small><b>' + esc(state.voiceSlowModel) + '</b></div></div><small>路径：' + esc(state.voiceQualityPath) + ' · TTS: ' + esc(state.voiceModel) + ' · LLM source: ' + esc(state.voiceModelSource) + '</small></div><div class="insight-grid">' + insightCards + '</div><div class="metric-grid realtime"><div><span>ASR</span>' + metric(state.voiceLatency.asr, 'ms') + '</div><div><span>FAST LLM</span>' + metric(state.voiceLatency.intent, 'ms') + '</div><div><span>SLOW LLM</span>' + metric(state.voiceLatency.slow, 'ms') + '</div><div><span>KB</span>' + metric(state.voiceLatency.kb, 'ms') + '</div><div><span>TTS TTFB</span>' + metric(state.voiceLatency.tts, 'ms') + '</div><div><span>E2E</span>' + metric(state.voiceLatency.e2e ?? (state.voiceLatency.tts === null || state.voiceLatency.asr === null || state.voiceLatency.intent === null ? null : state.voiceLatency.asr + state.voiceLatency.intent + state.voiceLatency.tts), 'ms') + '</div></div><div class="rtc-status-grid"><div><span>RTT</span><b>' + (state.voiceMetrics?.rtt ?? '—') + '</b></div><div><span>JITTER</span><b>' + (state.voiceMetrics?.jitter ?? '—') + '</b></div><div><span>PACKET LOSS</span><b>' + (state.voiceMetrics?.packetLoss ?? '—') + '</b></div><div><span>INTERRUPT</span><b>' + (state.voiceMetrics?.interrupt ?? '—') + '</b></div></div><details class="observe-detail" open><summary>KNOWLEDGE BASE <span>top hits</span></summary><ul class="knowledge-list">' + knowledge + '</ul></details><details class="observe-detail"><summary>EVENT TRACE <span>' + state.voiceLogs.length + ' events</span></summary><ul class="voice-log">' + logs + '</ul></details><details class="observe-detail"><summary>文本备用入口</summary><div class="voice-samples">' + scenario.examples.map((item) => '<button type="button" data-voice-sample="' + esc(item) + '">' + item + '</button>').join('') + '</div><div class="voice-composer"><textarea id="voice-input" rows="2" placeholder="' + esc(scenario.prompt) + '">' + esc(state.voiceInput) + '</textarea><div class="voice-actions"><button class="button primary" type="button" data-voice-send>发送并运行 <span>↗</span></button></div></div></details><div class="obs-boundary"><span>' + (state.runtimeMode === 'sandbox' ? 'SANDBOX / SIMULATED' : 'LIVE / SERVER TELEMETRY') + '</span><p>' + (state.runtimeMode === 'sandbox' ? '当前为可重复的 Sandbox 演示，事件会明确标注 simulated。' : '当前会话由 LiveKit、Agent 和 ElevenLabs 事件实时填充指标。') + '</p></div></aside></div></section>' + detailPages);
+  const callButton = scenario.direction === 'outbound' ? '<button class="call-action answer ' + (['connected', 'connecting'].includes(state.voiceCallStatus) ? 'reconnect' : '') + '" type="button" data-voice-answer aria-label="' + (state.voiceCallStatus === 'ringing' ? '接听来电' : state.voiceCallStatus === 'ended' ? '再次来电' : '已接听') + '">' + (state.voiceCallStatus === 'ringing' ? '接听' : state.voiceCallStatus === 'ended' ? '重拨' : '已接听') + '</button><button class="call-action reject ' + (state.voiceCallStatus === 'ringing' ? '' : 'reconnect') + '" type="button" data-voice-reject aria-label="拒接来电">拒接</button>' : '<button class="call-action answer ' + (state.voiceCallStatus === 'connected' || state.voiceCallStatus === 'connecting' ? 'reconnect' : '') + '" type="button" data-voice-call aria-label="' + (state.voiceCallStatus === 'idle' || state.voiceCallStatus === 'ended' ? '开始拨号' : '重新连接') + '">' + (state.voiceCallStatus === 'idle' || state.voiceCallStatus === 'ended' ? '拨号' : '重连') + '</button>';
+  const callHeadline = scenario.direction === 'outbound' && state.voiceCallStatus === 'ringing' ? '有一通语音来电' : state.voiceStatus === 'listening' ? '正在听你说' : state.voiceStatus === 'thinking' ? '正在整理回答' : state.voiceStatus === 'speaking' ? 'Agent 正在播报' : state.voiceCallStatus === 'connected' ? '通话已连接，开始说话' : state.voiceCallStatus === 'connecting' ? '正在建立安全连接' : state.voiceCallStatus === 'error' ? (isDemo() ? '通话暂未接通' : '连接异常，已切换降级体验') : state.voiceCallStatus === 'ended' ? '通话已结束' : '准备建立通话';
+  const settingsButton = '<button type="button" class="voice-settings-trigger" data-open-voice-settings aria-haspopup="dialog">语音设置 <span aria-hidden="true">↗</span></button>';
+  const mobileNav = '<nav class="voice-mobile-nav" aria-label="工作台面板">' +
+    [['call','通话'], ['scenario','场景'], ['metrics','指标'], ['logs','日志']].map(([key, title]) =>
+      '<button type="button" data-voice-panel="' + key + '"' + (key === selectedMobilePanel ? ' aria-current="true"' : '') + '>' + title + '</button>').join('') +
+    '<button type="button" data-open-voice-settings aria-haspopup="dialog">设置</button></nav>';
+  const stages = { idle:'待拨号', ringing:'来电中', connecting:'正在连接', connected:'通话中', listening:'正在听', speaking:'正在播报', thinking:'正在处理', interrupted:'播报已打断', reconnecting:'正在重连', error:'连接异常', ended:'已结束' };
+  const chipText = isDemo() ? stages[state.voiceStatus] || stages[state.voiceCallStatus] || '待拨号' : state.voiceStatus.toUpperCase();
+  const oldSettings = '<details class="voice-settings compact-settings"><summary>语音配置 <span>语言 / 音色 / 参数</span></summary>' + settings + '</details>';
+  const sessionReadout = isDemo()
+    ? '<time class="voice-call-timer" aria-label="通话时长">' + demoCallDuration() + '</time>'
+    : '<small>trace ' + esc(state.voiceSession?.traceId || sessionLabel) + '</small>';
+  const modelLabel = isDemo() ? agentConfirmed ? '本次通话模型' : '即将使用的模型' : 'MODEL ROUTING';
+  const withEffort = (model, lane) => {
+    const effort = activeModels?.[lane + 'ReasoningEffort'] || demoPreferences.voiceConfig[lane + 'ReasoningEffort'];
+    return esc(model) + (isDemo() && effort && !model.includes('/gpt-4') ? ' · ' + esc(effort) : '');
+  };
+  const fastDisplay = withEffort(fastModel, 'fast');
+  const slowDisplay = withEffort(slowModel, 'slow');
+  const displayVoice = isDemo() ? settingsPanel.voiceName(activeModels?.voiceId || demoPreferences.voiceId) : state.voiceVoice;
+  const detailsLink = '<a class="detail-link detail-link-primary" href="#voice-details">查看 Demo 详情 ↗</a>';
+  return shell('<section class="voice-screen section-pad" ' + (isDemo() ? 'data-mobile-panel="' + selectedMobilePanel + '" ' : '') + 'data-direction="' + scenario.direction + '"><div class="voice-screen-head"><div><span class="section-label">' + (isDemo() ? (scenario.direction === "outbound" ? "外呼" : "呼入") : "INTERACTIVE AI VOICE DEMO / " + scenario.direction.toUpperCase()) + '</span><h1>' + scenario.title + '</h1><p>' + scenario.subtitle + '</p></div><div class="voice-top-actions"><span class="runtime-chip ' + state.runtimeMode + '">' + (isDemo() && state.runtimeMode === 'ready' ? '待接通' : state.runtimeMode.toUpperCase()) + (state.runtimeMode === 'sandbox' ? ' / SIMULATED' : '') + '</span><div class="scenario-tabs" role="tablist" aria-label="语音场景">' + voiceScenarios.map((item) => '<a role="tab" aria-selected="' + (item.id === scenario.id) + '" class="' + (item.id === scenario.id ? 'selected' : '') + '" href="#/apps/voice?scenario=' + item.id + '">' + item.title + '</a>').join('') + '</div></div></div>' + (isDemo() ? mobileNav : '') + '<div class="voice-console"><aside class="voice-context-panel"><div class="panel-title"><span>' + (isDemo() ? '场景' : 'SCENARIO') + '</span><b>' + scenario.direction.toUpperCase() + '</b></div><div class="context-intro"><span class="scenario-icon">' + scenario.title.slice(0, 1) + '</span><div><h2>' + scenario.title + '</h2><p>默认音色：' + esc(scenario.defaultVoice || 'server preset') + '</p></div></div>' + (isDemo() ? settingsButton : '') + '<div class="context-meta"><span>SESSION</span><b>' + esc(sessionLabel) + '</b><span>TRANSPORT</span><b>LiveKit WebRTC</b><span>TTS MODEL</span><b>' + esc(ttsModel) + '</b><span>FAST MODEL</span><b>' + esc(fastModel) + '</b><span>SLOW MODEL</span><b>' + esc(slowModel) + '</b><span>ASR</span><b>' + esc(asrModel) + '</b><span>VOICE</span><b>' + esc(displayVoice === 'default' ? isDemo() ? '场景默认' : 'server default' : displayVoice) + '</b></div><div class="panel-title workflow-title"><span>' + (isDemo() ? '业务流程' : 'WORKFLOW') + '</span><b>' + state.voiceStep + '/' + scenario.workflow.length + '</b></div><div class="voice-workflow compact">' + steps + '</div>' + (isDemo() ? '' : oldSettings) + detailsLink + '</aside><section class="voice-stage"><div class="stage-top"><div>' + agentAvatar + '<span class="mini-label">VOICE CALL</span><b>' + (scenario.direction === 'outbound' ? 'Agent 主动来电' : '用户主动拨号') + '</b></div><span class="voice-state ' + state.voiceStatus + '"><i></i>' + chipText + '</span></div><div class="call-session-strip"><span>' + (state.voiceCallStatus === 'idle' ? 'READY TO CONNECT' : 'WEBRTC / LIVEKIT') + '</span><b>' + (state.voiceCallStatus === 'connected' ? 'CONNECTED' : state.voiceCallStatus.toUpperCase()) + '</b>' + sessionReadout + '</div><div class="caller-orb ' + state.voiceCallStatus + ' ' + state.voiceStatus + '"' + (isDemo() ? ' aria-hidden="true">' : '>' + scenario.title.slice(0, 1)) + '</div><div class="call-wave ' + state.voiceStatus + '" data-audio-state="' + state.voiceStatus + '" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>' + liveCaption + '<strong role="status" aria-live="polite">' + callHeadline + '</strong><div class="call-actions" role="group" aria-label="通话控制"><button class="call-action caption-toggle" type="button" data-voice-captions aria-pressed="' + state.voiceSubtitleVisible + '" aria-label="' + (state.voiceSubtitleVisible ? '隐藏字幕' : '显示字幕') + '">' + (state.voiceSubtitleVisible ? '字幕开' : '字幕关') + '</button>' + callButton + muteButton + endButton + '</div><small>' + micStatus + ' · ASR: ' + esc(asrModel) + ' · ' + state.voiceApiState + '</small>' + transcriptPanel + '</section>' + '<aside class="voice-observe-panel">' + (isDemo() ? '' : tracePanel + conversationArchive) + '<div class="panel-title"><span>' + (isDemo() ? '实时指标' : 'REAL-TIME METRICS') + '</span><b>' + state.voiceCallStatus.toUpperCase() + ' · ' + (state.runtimeMode === 'sandbox' ? 'SANDBOX' : state.runtimeMode === 'live' ? 'LIVE' : '待接通') + '</b></div><div class="current-model-card"><span>' + modelLabel + '</span><div class="model-pair"><div><small>' + (isDemo() ? '对话模型' : 'FAST / VOICE') + '</small><b>' + fastDisplay + '</b></div><div><small>' + (isDemo() ? '核验模型' : 'SLOW / VALIDATE') + '</small><b>' + slowDisplay + '</b></div></div><small>路径：' + esc(state.voiceQualityPath) + ' · TTS: ' + esc(ttsModel) + ' · LLM source: ' + esc(isDemo() ? activeModels?.modelSource || '待连接' : state.voiceModelSource) + '</small></div>' + (isDemo() ? '' : '<div class="insight-grid">' + insightCards + '</div>') + '<div class="metric-grid realtime"><div><span>ASR</span>' + metric(state.voiceLatency.asr, 'ms') + '</div><div><span>FAST LLM</span>' + metric(state.voiceLatency.intent, 'ms') + '</div><div><span>SLOW LLM</span>' + metric(state.voiceLatency.slow, 'ms') + '</div><div><span>KB</span>' + metric(state.voiceLatency.kb, 'ms') + '</div><div><span>TTS TTFB</span>' + metric(state.voiceLatency.tts, 'ms') + '</div><div><span>E2E</span>' + metric(state.voiceLatency.e2e ?? (isDemo() || state.voiceLatency.tts === null || state.voiceLatency.asr === null || state.voiceLatency.intent === null ? null : state.voiceLatency.asr + state.voiceLatency.intent + state.voiceLatency.tts), 'ms') + '</div></div><div class="rtc-status-grid"><div><span>RTT</span><b>' + (state.voiceMetrics?.rtt ?? '—') + '</b></div><div><span>JITTER</span><b>' + (state.voiceMetrics?.jitter ?? '—') + '</b></div><div><span>PACKET LOSS</span><b>' + (state.voiceMetrics?.packetLoss ?? '—') + '</b></div><div><span>INTERRUPT</span><b>' + (state.voiceMetrics?.interrupt ?? '—') + '</b></div></div><details class="observe-detail" open><summary>' + (isDemo() ? '知识库 <span>演示规则</span>' : 'KNOWLEDGE BASE <span>top hits</span>') + '</summary><ul class="knowledge-list">' + knowledge + '</ul></details><details class="observe-detail"><summary>EVENT TRACE <span>' + state.voiceLogs.length + ' events</span></summary><ul class="voice-log">' + logs + '</ul></details>' + (isDemo() ? '' : '<details class="observe-detail"><summary>文本备用入口</summary><div class="voice-samples">' + scenario.examples.map((item) => '<button type="button" data-voice-sample="' + esc(item) + '">' + item + '</button>').join('') + '</div><div class="voice-composer"><textarea id="voice-input" rows="2" placeholder="' + esc(scenario.prompt) + '">' + esc(state.voiceInput) + '</textarea><div class="voice-actions"><button class="button primary" type="button" data-voice-send>发送并运行 <span>↗</span></button></div></div></details>') + '<div class="obs-boundary"><span>' + (state.runtimeMode === 'sandbox' ? 'SANDBOX / SIMULATED' : state.runtimeMode === 'ready' ? '运行观测' : 'LIVE / SERVER TELEMETRY') + '</span><p>' + (state.runtimeMode === 'sandbox' ? '当前为可重复的 Sandbox 演示，事件会明确标注 simulated。' : state.runtimeMode === 'ready' ? '接通后显示实际测量值。' : '当前会话由 LiveKit、Agent 和 ElevenLabs 事件实时填充指标。') + '</p></div>' + (isDemo() ? tracePanel + conversationArchive : '') + '</aside></div></section>' + detailPages);
 }
 
 function notFoundView() { return shell('<section class="page-intro section-pad"><span class="section-label">404 / PAGE NOT FOUND</span><h1>这条路径还没有产品。</h1><a class="button primary" href="#/">回到首页</a></section>'); }
@@ -325,6 +424,86 @@ function base64ToBytes(value) {
   const binary = atob(value);
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
+function recordDemoEvent(event, persist = false) {
+  const session = state.voiceSession;
+  if (!session || (event.sessionId && event.sessionId !== session.sessionId)) return;
+  let batch = traceBatches.get(session.sessionId);
+  if (!batch) {
+    batch = { session, events: [], display: [], queue: Promise.resolve(), timer: null };
+    traceBatches.set(session.sessionId, batch);
+  }
+  const traceEvent = { ...event, eventId: event.eventId || crypto.randomUUID(), ts: event.ts || new Date().toISOString() };
+  batch.display.push(traceEvent);
+  if (!persist) return;
+  batch.events.push(traceEvent);
+  batch.timer ??= window.setTimeout(() => flushDemoEvents(batch), 2500);
+}
+
+async function flushDemoEvents(batch) {
+  if (!batch) return;
+  window.clearTimeout(batch.timer);
+  batch.timer = null;
+  const pending = batch.events.splice(0);
+  if (!pending.length) return batch.queue;
+  let sent = 0;
+  batch.queue = batch.queue.then(async () => {
+    for (let index = 0; index < pending.length; index += 30) {
+      const events = pending.slice(index, index + 30);
+      const response = await fetch(voiceRuntimeEndpoint('/api/voice/session/' + encodeURIComponent(batch.session.sessionId) + '/event'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ traceId: batch.session.traceId, events }),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!response.ok) throw new Error('TRACE_WRITE_HTTP_' + response.status);
+      sent += events.length;
+    }
+    batch.error = null;
+  }).catch((error) => {
+    batch.events.unshift(...pending.slice(sent));
+    batch.error = error.message;
+  });
+  return batch.queue;
+}
+
+async function finishVoiceCall(reason, update = true) {
+  const session = state.voiceSession;
+  const batch = session && traceBatches.get(session.sessionId);
+  callAttempt += 1;
+  window.clearInterval(state.voiceStatsTimer);
+  state.voiceStatsTimer = null;
+  state.voiceCallStatus = 'ended';
+  state.voiceStatus = 'ended';
+  demoCallEndedAt = Date.now();
+  state.voiceLocalTrack?.stop();
+  state.voiceLocalTrack = null;
+  const room = state.voiceRoom;
+  state.voiceRoom = null;
+  void room?.disconnect();
+  state.voiceEventSocket?.close();
+  state.voiceEventSocket = null;
+  stopVoiceAnalyser();
+  if (update) render(true);
+  if (session) {
+    await flushDemoEvents(batch);
+    if (batch?.events.length) await flushDemoEvents(batch);
+    try {
+      const response = await fetch(voiceRuntimeEndpoint('/api/voice/end'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: session.sessionId, reason }), signal: AbortSignal.timeout(10000)
+      });
+      if (!response.ok) throw new Error('TRACE_END_HTTP_' + response.status);
+    } catch (error) {
+      if (update && state.voiceSession === session) voiceLog(error.message, 'orange');
+    }
+  }
+  if (update && session && state.voiceSession === session) await loadSessionTrace();
+  if (batch?.error && update && state.voiceSession === session) {
+    state.voiceTraceStatus += ' · 有事件待同步';
+    render(true);
+  }
+  if (session && !batch?.error) traceBatches.delete(session.sessionId);
+}
+
 function postRoomTraceEvent(event) {
   if (!voiceRuntimeUrl() || state.runtimeMode !== 'live' || !state.voiceSession?.sessionId || !event?.type) return Promise.resolve();
   const sessionId = state.voiceSession.sessionId;
@@ -350,11 +529,13 @@ async function loadSessionTrace() {
   state.voiceTraceStatus = 'loading';
   render(true);
   try {
-    const response = await fetch(voiceRuntimeEndpoint('/api/voice/session/' + encodeURIComponent(state.voiceSession.sessionId) + '/trace'));
+    const sessionId = state.voiceSession.sessionId;
+    const response = await fetch(voiceRuntimeEndpoint('/api/voice/session/' + encodeURIComponent(sessionId) + '/trace'), { signal: AbortSignal.timeout(10000) });
+    if (sessionId !== state.voiceSession?.sessionId) return;
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || 'TRACE_HTTP_' + response.status);
     state.voiceTraceEvents = Array.isArray(payload.events) ? payload.events : [];
-    state.voiceTraceStatus = `loaded ${state.voiceTraceEvents.length}`;
+    state.voiceTraceStatus = isDemo() ? `已读取 ${state.voiceTraceEvents.length} 条 · ${payload.persistence || '服务端'}` : `loaded ${state.voiceTraceEvents.length}`;
   } catch (error) {
     state.voiceTraceStatus = `local ${state.voiceLogs.length} · server trace unavailable`;
     voiceLog('trace query failed: ' + error.message, 'orange');
@@ -372,7 +553,37 @@ function traceEventTime(event) {
 }
 function applyRuntimeEvent(event, source = 'runtime') {
   if (!event || typeof event !== 'object') return;
-  if (source === 'room') postRoomTraceEvent(event);
+  if (isDemo()) {
+    if (event.sessionId && event.sessionId !== state.voiceSession?.sessionId) return;
+    if (source === 'runtime' && !['session_created', 'token_issued', 'ice_checking', 'call_answered'].includes(event.type)) return;
+    recordDemoEvent(event, source === 'room');
+    if (state.voiceCallStatus === 'ended') return;
+    if (source === 'runtime' && state.voiceRoom) { render(true); return; }
+    if (event.type === 'agent_joined') {
+      agentConfirmed = true;
+      activeModels = {
+        fastModel: event.fastModel || event.agentModel || activeModels?.fastModel,
+        slowModel: event.slowModel || activeModels?.slowModel,
+        asrModel: event.asrModel || activeModels?.asrModel,
+        ttsModel: event.ttsModel || activeModels?.ttsModel,
+        voiceId: event.voiceId || activeModels?.voiceId,
+        fastReasoningEffort: event.voiceConfig?.fastReasoningEffort || activeModels?.fastReasoningEffort,
+        slowReasoningEffort: event.voiceConfig?.slowReasoningEffort || activeModels?.slowReasoningEffort,
+        modelSource: event.modelSource || activeModels?.modelSource
+      };
+      state.voiceStep = Math.max(state.voiceStep, 1);
+    }
+    if (event.type === 'final_transcript') state.voiceStep = Math.max(state.voiceStep, 2);
+    if (event.type === 'knowledge_hit') {
+      state.voiceStep = Math.max(state.voiceStep, 3);
+      if (Number.isFinite(event.latencyMs)) state.voiceLatency.kb = event.latencyMs;
+    }
+    if (event.type === 'tts_text' && state.voiceConversation.some((item) => item.role === 'user')) {
+      state.voiceStep = Math.max(state.voiceStep, 4);
+    }
+    if (event.type === 'handoff') state.voiceStep = 5;
+    if (event.type === 'ended') { void finishVoiceCall(event.reason || 'agent'); return; }
+  } else if (source === 'room') postRoomTraceEvent(event);
   const labels = {
     session_created: 'session created', token_issued: 'short-lived token issued', ice_checking: 'ICE checking',
     room_joined: 'LiveKit room joined', agent_joined: 'agent joined', audio_track_ready: 'audio track ready',
@@ -386,7 +597,7 @@ function applyRuntimeEvent(event, source = 'runtime') {
     state.voiceStatus = 'error';
     state.voiceCallStatus = 'error';
     state.voiceApiState = code;
-    if (/429|quota|stt|speech|recogniz|agent_error/i.test(code)) {
+    if (!isDemo() && /429|quota|stt|speech|recogniz|agent_error/i.test(code)) {
       state.voiceAsrFallback = true;
       if (/stt|speech|recogniz/i.test(code)) state.voiceAsrModel = 'Web Speech API / Chrome fallback';
       state.voiceApiState = /429|quota|agent_error/i.test(code) ? 'server Agent unavailable → Chrome ASR + demo reply' : 'server ASR unavailable → Chrome fallback';
@@ -397,10 +608,10 @@ function applyRuntimeEvent(event, source = 'runtime') {
   if (['dialing', 'ice_checking', 'connecting', 'room_joined'].includes(event.type)) { state.voiceStatus = 'connecting'; state.voiceCallStatus = 'connecting'; }
   if (event.type === 'agent_joined') { state.voiceStatus = 'connected'; state.voiceCallStatus = 'connected'; }
   if (['audio_track_ready', 'listening', 'speech_stopped'].includes(event.type)) { state.voiceStatus = 'connected'; state.voiceCallStatus = 'connected'; }
-  if (event.type === 'speech_started') state.voiceStatus = 'listening';
+  if (event.type === 'speech_started' || event.type === 'partial_transcript') state.voiceStatus = 'listening';
   if (event.type === 'thinking' || event.type === 'tool_call') state.voiceStatus = 'thinking';
   if (event.type === 'deep_started') state.voiceSlowStatus = 'running';
-  if (event.type === 'deep_result') { state.voiceSlowStatus = 'ready'; state.voiceSlowModel = event.model || state.voiceSlowModel; state.voiceQualityPath = event.trigger === 'partial' ? 'speculative lookup → validated' : 'fast voice → slow validation'; }
+  if (event.type === 'deep_result') { state.voiceSlowStatus = 'ready'; if (!isDemo()) state.voiceSlowModel = event.model || state.voiceSlowModel; state.voiceQualityPath = event.trigger === 'partial' ? 'speculative lookup → validated' : 'fast voice → slow validation'; }
   if (event.type === 'deep_result_used') { state.voiceSlowStatus = 'used'; state.voiceQualityPath = 'fast voice + slow result'; }
   if (event.type === 'deep_error') { state.voiceSlowStatus = 'fallback'; state.voiceQualityPath = 'fast voice → demo KB fallback'; }
   if (['speaking', 'tts_started'].includes(event.type)) state.voiceStatus = 'speaking';
@@ -424,12 +635,14 @@ function applyRuntimeEvent(event, source = 'runtime') {
   if (event.transcript && event.role && !['partial_transcript', 'final_transcript', 'tts_text_delta', 'tts_text'].includes(event.type)) addConversationMessage(event.role, event.transcript, 'runtime');
   if (event.type === 'tts_text' && (event.text || event.transcript)) addConversationMessage(event.role || 'assistant', event.text || event.transcript, 'tts', { model: event.ttsModel || state.voiceModel });
   if (event.insights) state.voiceInsights = { ...state.voiceInsights, ...event.insights };
-  if (event.agentModel) state.voiceAgentModel = event.agentModel;
-  if (event.fastModel) { state.voiceFastModel = event.fastModel; state.voiceAgentModel = event.fastModel; }
-  if (event.slowModel) state.voiceSlowModel = event.slowModel;
-  if (event.asrModel) state.voiceAsrModel = event.asrModel;
-  if (event.ttsModel) state.voiceModel = event.ttsModel;
-  if (event.modelSource) state.voiceModelSource = event.modelSource;
+  if (!isDemo()) {
+    if (event.agentModel) state.voiceAgentModel = event.agentModel;
+    if (event.fastModel) { state.voiceFastModel = event.fastModel; state.voiceAgentModel = event.fastModel; }
+    if (event.slowModel) state.voiceSlowModel = event.slowModel;
+    if (event.asrModel) state.voiceAsrModel = event.asrModel;
+    if (event.ttsModel) state.voiceModel = event.ttsModel;
+    if (event.modelSource) state.voiceModelSource = event.modelSource;
+  }
   if (event.emotion) state.voiceInsights = { ...state.voiceInsights, emotion: event.emotion, confidence: event.confidence || state.voiceInsights.confidence };
   if (event.age || event.gender) state.voiceInsights = { ...state.voiceInsights, age: event.age || state.voiceInsights.age, gender: event.gender || state.voiceInsights.gender, confidence: event.confidence || state.voiceInsights.confidence };
   render(true);
@@ -439,7 +652,7 @@ function subscribeRuntimeEvents(sessionId) {
   if (state.voiceEventSocket) state.voiceEventSocket.close();
   const socket = new WebSocket(voiceRuntimeSocket('/api/voice/events?sessionId=' + encodeURIComponent(sessionId)));
   state.voiceEventSocket = socket;
-  socket.addEventListener('message', (event) => { try { applyRuntimeEvent(JSON.parse(event.data), 'runtime'); } catch {} });
+  socket.addEventListener('message', (event) => { if (state.voiceEventSocket !== socket) return; try { applyRuntimeEvent(JSON.parse(event.data), 'runtime'); } catch {} });
   socket.addEventListener('error', () => voiceLog('event stream unavailable', 'orange'));
 }
 async function requestMicrophoneTrack() {
@@ -452,13 +665,12 @@ async function requestMicrophoneTrack() {
     return null;
   }
   let timeoutId;
-  pending.then((track) => {
-    if (state.voiceLocalTrack !== track && state.voiceApiState !== 'live microphone ready') track.stop();
-  }).catch(() => {});
+  let timedOut = false;
+  pending.then((track) => { if (timedOut) track.stop(); }).catch(() => {});
   try {
     const track = await Promise.race([
       pending,
-      new Promise((_, reject) => { timeoutId = window.setTimeout(() => reject(new Error('MIC_PERMISSION_TIMEOUT')), 12000); })
+      new Promise((_, reject) => { timeoutId = window.setTimeout(() => { timedOut = true; reject(new Error('MIC_PERMISSION_TIMEOUT')); }, 20000); })
     ]);
     window.clearTimeout(timeoutId);
     state.voiceApiState = 'microphone permission granted';
@@ -531,14 +743,18 @@ async function toggleLiveMute() {
   render(true);
 }
 
-async function connectLiveKit(session, preloadedTrack = null) {
+async function connectLiveKit(session, preloadedTrack = null, attempt = callAttempt) {
   if (!session?.token || !session.room || !session.serverUrl) throw new Error('LIVEKIT_SESSION_INCOMPLETE');
   if (state.voiceRoom) state.voiceRoom.disconnect();
   const room = new Room({ adaptiveStream: true, dynacast: true });
   state.voiceRoom = room;
   room.on(RoomEvent.ConnectionStateChanged, (connectionState) => {
+    if (state.voiceRoom !== room) return;
     voiceLog('LiveKit connection: ' + connectionState, connectionState === ConnectionState.Connected ? 'lime' : 'cyan');
-    if (connectionState === ConnectionState.Connected) { state.voiceCallStatus = 'connected'; state.voiceStatus = 'connected'; }
+    if (connectionState === ConnectionState.Connected && (!isDemo() || agentConfirmed)) {
+      state.voiceCallStatus = 'connected';
+      state.voiceStatus = 'connected';
+    }
     if (connectionState === ConnectionState.Reconnecting) { state.voiceCallStatus = 'connecting'; state.voiceStatus = 'reconnecting'; }
     if (connectionState === ConnectionState.Disconnected && state.voiceCallStatus !== 'ended') { state.voiceCallStatus = 'error'; state.voiceStatus = 'error'; }
     render(true);
@@ -560,12 +776,16 @@ async function connectLiveKit(session, preloadedTrack = null) {
       voiceLog('remote audio track detached', 'quiet');
     }
   });
-  room.on(RoomEvent.DataReceived, (payload) => {
+  room.on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
+    if (state.voiceRoom !== room || (isDemo() && (topic !== 'voice-agent.events' || !participant?.isAgent))) return;
     try { applyRuntimeEvent(JSON.parse(new TextDecoder().decode(payload)), 'room'); } catch {}
   });
   await room.connect(session.serverUrl, session.token);
+  if (isDemo() && attempt !== callAttempt) { await room.disconnect(); return; }
+  if (isDemo()) demoCallStartedAt = Date.now();
   let localTrack = preloadedTrack;
   try {
+    if (!localTrack && isDemo()) throw new Error('MIC_PERMISSION_REQUIRED');
     if (!localTrack) localTrack = await createLocalAudioTrack({ echoCancellation: true, noiseSuppression: state.voiceNoiseReduction, autoGainControl: true });
     await room.localParticipant.publishTrack(localTrack);
     state.voiceLocalTrack = localTrack;
@@ -580,11 +800,14 @@ async function connectLiveKit(session, preloadedTrack = null) {
     // audio, ElevenLabs TTS and room telemetry remain usable. The mic button
     // stays available for a user-initiated retry.
     if (localTrack && state.voiceLocalTrack !== localTrack) localTrack.stop();
+    if (isDemo()) throw error;
     voiceLog('microphone permission unavailable: ' + (error?.message || 'denied'), 'orange');
     state.voiceApiState = 'live session / microphone permission required';
   }
-  state.voiceCallStatus = 'connected';
-  state.voiceStatus = 'connected';
+  if (!isDemo()) {
+    state.voiceCallStatus = 'connected';
+    state.voiceStatus = 'connected';
+  }
   startLiveKitStats(room);
   render(true);
 }
@@ -620,17 +843,28 @@ function startLiveKitStats(room) {
   sample();
   state.voiceStatsTimer = window.setInterval(sample, 1500);
 }
-async function createRuntimeSession(mode) {
+async function createRuntimeSession(mode, attempt = callAttempt) {
   const scenario = activeVoiceScenario();
   const response = await fetch(voiceRuntimeEndpoint('/api/voice/session'), {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scenario: scenario.id, direction: scenario.direction, language: state.voiceLanguage, voiceId: state.voiceVoice, agentModel: state.voiceFastModel || state.voiceAgentModel, fastModel: state.voiceFastModel || state.voiceAgentModel, slowModel: state.voiceSlowModel, asrModel: state.voiceAsrModel, ttsModel: state.voiceModel, runtimeMode: mode, voiceConfig: { interactionType: state.voiceInteractionType, vad: state.voiceVad, noiseReduction: state.voiceNoiseReduction, allowInterruption: state.voiceAllowInterruption, silenceStrategy: state.voiceSilenceStrategy, voiceprintRecognition: state.voiceVoiceprintRecognition, genderRecognition: state.voiceGenderRecognition, addresseeAwareFiltering: state.voiceAddresseeAwareFiltering, hangupStrategy: state.voiceHangupStrategy, startWithVoiceCall: state.voiceStartWithVoiceCall, userMessagePosition: state.voiceUserMessagePosition, sessionRelevanceRejection: state.voiceSessionRelevanceRejection, maxCallTime: state.voiceMaxCallTime, tone: state.voiceTone, emotion: state.voiceEmotion, pitch: state.voicePitch, volume: state.voiceVolume, stability: state.voiceStability, similarity: state.voiceSimilarity, style: state.voiceStyle, speed: state.voiceSpeed, outputFormat: state.voiceOutputFormat, chunkSchedule: state.voiceChunkSchedule, bargeIn: state.voiceBargeIn } })
+    body: JSON.stringify(isDemo() ? { ...demoPreferences, scenario: scenario.id, direction: scenario.direction, runtimeMode: mode } : { scenario: scenario.id, direction: scenario.direction, language: state.voiceLanguage, voiceId: state.voiceVoice, agentModel: state.voiceFastModel || state.voiceAgentModel, fastModel: state.voiceFastModel || state.voiceAgentModel, slowModel: state.voiceSlowModel, asrModel: state.voiceAsrModel, ttsModel: state.voiceModel, runtimeMode: mode, voiceConfig: { interactionType: state.voiceInteractionType, vad: state.voiceVad, noiseReduction: state.voiceNoiseReduction, allowInterruption: state.voiceAllowInterruption, silenceStrategy: state.voiceSilenceStrategy, voiceprintRecognition: state.voiceVoiceprintRecognition, genderRecognition: state.voiceGenderRecognition, addresseeAwareFiltering: state.voiceAddresseeAwareFiltering, hangupStrategy: state.voiceHangupStrategy, startWithVoiceCall: state.voiceStartWithVoiceCall, userMessagePosition: state.voiceUserMessagePosition, sessionRelevanceRejection: state.voiceSessionRelevanceRejection, maxCallTime: state.voiceMaxCallTime, tone: state.voiceTone, emotion: state.voiceEmotion, pitch: state.voicePitch, volume: state.voiceVolume, stability: state.voiceStability, similarity: state.voiceSimilarity, style: state.voiceStyle, speed: state.voiceSpeed, outputFormat: state.voiceOutputFormat, chunkSchedule: state.voiceChunkSchedule, bargeIn: state.voiceBargeIn } })
   });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error || 'SESSION_HTTP_' + response.status);
-  state.voiceSession = payload.session || payload;
+  const session = payload.session || payload;
+  if (attempt !== callAttempt) {
+    void fetch(voiceRuntimeEndpoint('/api/voice/end'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: session.sessionId, reason: 'cancelled' })
+    }).catch(() => {});
+    throw new Error('CALL_CANCELLED');
+  }
+  state.voiceSession = session;
+  if (isDemo()) {
+    activeModels = { ...session, fastReasoningEffort: session.voiceConfig?.fastReasoningEffort, slowReasoningEffort: session.voiceConfig?.slowReasoningEffort };
+  }
   state.runtimeMode = state.voiceSession.runtimeMode || mode;
-  if (state.runtimeMode === 'live') {
+  if (!isDemo() && state.runtimeMode === 'live') {
     if (state.voiceSession.agentModel) state.voiceAgentModel = state.voiceSession.agentModel;
     if (state.voiceSession.fastModel) state.voiceFastModel = state.voiceSession.fastModel;
     if (state.voiceSession.slowModel) state.voiceSlowModel = state.voiceSession.slowModel;
@@ -642,7 +876,7 @@ async function createRuntimeSession(mode) {
   return state.voiceSession;
 }
 async function ensureOutboundSession() {
-  if (activeVoiceScenario().direction !== 'outbound' || state.voiceSession || state.voiceOutboundInit || !voiceRuntimeUrl()) return;
+  if (isDemo() || activeVoiceScenario().direction !== 'outbound' || state.voiceSession || state.voiceOutboundInit || !voiceRuntimeUrl()) return;
   state.voiceOutboundInit = true;
   try {
     const session = await createRuntimeSession('live');
@@ -752,10 +986,65 @@ function startBrowserRecognition({ fallback = false } = {}) {
     render(true);
   }
 }
+async function startDemoCall(direction) {
+  if (state.voiceRoom) await finishVoiceCall('redial', false);
+  resetDemoCall();
+  const attempt = ++callAttempt;
+  state.voiceNoiseReduction = demoPreferences.voiceConfig.noiseReduction;
+  state.voiceVolume = demoPreferences.voiceConfig.volume;
+  state.voiceCallStatus = 'connecting';
+  state.voiceStatus = 'connecting';
+  state.runtimeMode = 'ready';
+  state.voiceApiState = 'requesting microphone permission';
+  const context = ensureVoiceAudioContext();
+  if (context?.state === 'suspended') void context.resume().catch(() => {});
+  voiceLog('requesting microphone permission', 'cyan');
+  render(true);
+  const track = await requestMicrophoneTrack();
+  if (attempt !== callAttempt) { track?.stop(); return; }
+  if (!track) {
+    state.voiceCallStatus = 'error';
+    state.voiceStatus = 'error';
+    render(true);
+    return;
+  }
+  try {
+    const session = await createRuntimeSession('live', attempt);
+    if (session.runtimeMode !== 'live') throw new Error('语音服务暂不可用');
+    if (direction === 'outbound') {
+      const response = await fetch(voiceRuntimeEndpoint('/api/voice/answer'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: session.sessionId }), signal: AbortSignal.timeout(10000)
+      });
+      if (!response.ok) throw new Error((await response.json()).error || 'ANSWER_FAILED');
+    }
+    if (attempt === callAttempt) await connectLiveKit(session, track, attempt);
+    else track.stop();
+  } catch (error) {
+    track.stop();
+    if (attempt !== callAttempt) return;
+    if (state.voiceSession) await finishVoiceCall('connect_failed', false);
+    state.voiceCallStatus = 'error';
+    state.voiceStatus = 'error';
+    state.voiceApiState = error.message;
+    voiceLog(error.message, 'orange');
+    render(true);
+  }
+}
+
 function bindVoiceEvents() {
+  document.querySelectorAll('[data-open-voice-settings]').forEach((button) => {
+    button.addEventListener('click', () => settingsPanel.open(button));
+  });
+  document.querySelectorAll('[data-voice-panel]').forEach((button) => {
+    button.addEventListener('click', () => {
+      selectedMobilePanel = button.dataset.voicePanel;
+      render(true);
+    });
+  });
   document.querySelectorAll('.detail-link-primary').forEach((link) => link.addEventListener('click', (event) => { event.preventDefault(); document.querySelector('#voice-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
   const actionBar = document.querySelector('.call-actions');
-  if (actionBar && !voiceRuntimeUrl() && !actionBar.querySelector('[data-voice-mic]')) {
+  if (actionBar && !isDemo() && !voiceRuntimeUrl() && !actionBar.querySelector('[data-voice-mic]')) {
     const micButton = document.createElement('button');
     micButton.type = 'button';
     micButton.className = 'call-action voice-input';
@@ -773,6 +1062,7 @@ function bindVoiceEvents() {
   const send = document.querySelector('[data-voice-send]');
   if (send) send.addEventListener('click', () => processVoiceInput(state.voiceInput));
   const connect = async () => {
+    if (isDemo()) { await startDemoCall('inbound'); return; }
     state.voiceCallStatus = 'connecting';
     state.voiceStatus = 'connecting';
     state.voiceApiState = voiceRuntimeUrl() ? 'requesting server session' : 'sandbox / simulated';
@@ -818,6 +1108,7 @@ function bindVoiceEvents() {
   if (call) call.addEventListener('click', connect);
   const answer = document.querySelector('[data-voice-answer]');
   if (answer) answer.addEventListener('click', async () => {
+    if (isDemo()) { await startDemoCall('outbound'); return; }
     state.voiceCallStatus = 'connecting';
     state.voiceStatus = 'connecting';
     const audioContext = ensureVoiceAudioContext();
@@ -882,6 +1173,7 @@ function bindVoiceEvents() {
   if (mic) mic.addEventListener('click', () => voiceRuntimeUrl() && state.voiceRoom ? ensureLiveMicrophone() : startBrowserRecognition({ fallback: state.voiceAsrFallback }));
   const end = document.querySelector('[data-voice-end]');
   if (end) end.addEventListener('click', async () => {
+    if (isDemo()) { await finishVoiceCall('user'); return; }
     if (state.voiceStatsTimer) { window.clearInterval(state.voiceStatsTimer); state.voiceStatsTimer = null; }
     if (state.voiceLocalTrack) { state.voiceLocalTrack.stop(); state.voiceLocalTrack = null; }
     if (state.voiceRoom) { state.voiceRoom.disconnect(); state.voiceRoom = null; }
@@ -962,14 +1254,44 @@ function render(preserveScroll = false) {
   const hash = hashParts[0];
   const query = new URLSearchParams(hashParts[1] || '');
   const segments = hash.split('/').filter(Boolean);
+  const nextDemo = segments[0] === 'apps' && segments[1] === 'voice';
+  const scenario = voiceScenarios.find((item) => item.id === query.get('scenario'))?.id || 'carrier';
+  if (nextDemo !== demoRoute || (nextDemo && scenario !== state.voiceScenario)) {
+    settingsPanel.close();
+    callAttempt += 1;
+    if (state.voiceSession && state.voiceCallStatus !== 'ended') void finishVoiceCall('navigation', false);
+    resetDemoCall();
+    state.runtimeMode = nextDemo ? 'ready' : 'sandbox';
+    if (!nextDemo) state.voiceApiState = 'sandbox / simulated';
+    selectedMobilePanel = 'call';
+  }
+  demoRoute = nextDemo;
+  document.body.classList.toggle('voice-demo-route', demoRoute);
+  const previousFocused = isDemo() && preserveScroll && app.contains(document.activeElement)
+    ? [...document.activeElement.attributes].find((attr) => attr.name.startsWith('data-voice-') || attr.name === 'data-open-voice-settings')
+    : null;
+  const detailsOpen = isDemo() && preserveScroll
+    ? [...app.querySelectorAll('.voice-observe-panel details')].map((detail) => detail.open) : [];
+  const panels = ['.voice-context-panel', '.voice-observe-panel', '.voice-transcript', '.conversation-thread'];
+  const scrolls = isDemo() && preserveScroll ? panels.map((selector) => app.querySelector(selector)?.scrollTop || 0) : [];
   if (!segments.length) app.innerHTML = homeView();
-  else if (segments[0] === 'apps' && segments[1] === 'voice') app.innerHTML = voiceScenarioView(query.get('scenario') || 'carrier');
+  else if (segments[0] === 'apps' && segments[1] === 'voice') app.innerHTML = voiceScenarioView(scenario);
   else if (segments[0] === 'apps') app.innerHTML = appsView();
   else if (segments[0] === 'projects' || segments[0] === 'method') app.innerHTML = notFoundView();
   else app.innerHTML = notFoundView();
+  if (isDemo() && preserveScroll) {
+    app.querySelectorAll('.voice-observe-panel details').forEach((detail, index) => {
+      if (detailsOpen[index] !== undefined) detail.open = detailsOpen[index];
+    });
+    panels.forEach((selector, index) => {
+      const panel = app.querySelector(selector);
+      if (panel && scrolls[index]) panel.scrollTop = scrolls[index];
+    });
+    if (previousFocused) app.querySelector('[' + previousFocused.name + '="' + CSS.escape(previousFocused.value) + '"]')?.focus({ preventScroll: true });
+  }
   bindVoiceEvents();
   bindAppCards();
   window.scrollTo({ top: preserveScroll ? previousScrollY : 0, behavior: 'instant' });
 }
-window.addEventListener('hashchange', render);
+window.addEventListener('hashchange', () => render());
 render();

@@ -1,4 +1,4 @@
-const DEFAULT_UPSTREAM = 'https://fengliangze-ai-voice-runtime.wellsfung.chatgpt.site';
+const DEFAULT_UPSTREAM = 'https://fengliangze-ai-voice-runtime.wellsfung.chatgpt.site/__runtime_origin';
 
 const cors = (env, origin = '') => {
   const configured = (env.CORS_ORIGIN || 'https://flappylz.github.io').split(',').map((item) => item.trim()).filter(Boolean);
@@ -10,9 +10,64 @@ const upstreamBase = (env) => String(env.UPSTREAM_RUNTIME_URL || DEFAULT_UPSTREA
 const traceKey = (sessionId) => `voice-trace:${sessionId}`;
 async function fetchUpstream(pathname, request, env) { return fetch(new Request(upstreamBase(env) + pathname, request)); }
 async function fetchUpstreamTrace(sessionId, env) { const response = await fetch(`${upstreamBase(env)}/api/voice/session/${encodeURIComponent(sessionId)}/trace`, { headers: { accept: 'application/json' } }); if (!response.ok) return null; return response.json().catch(() => null); }
-async function persistTrace(sessionId, trace, env) { if (!env.TRACE_KV || !trace) return false; await env.TRACE_KV.put(traceKey(sessionId), JSON.stringify({ ...trace, persistence: 'durable_kv', persistedAt: new Date().toISOString() })); return true; }
-async function mirrorTrace(sessionId, env) { const trace = await fetchUpstreamTrace(sessionId, env); if (!trace || !(await persistTrace(sessionId, trace, env))) throw new Error('TRACE_KV_WRITE_FAILED'); return trace; }
-async function readDurableTrace(sessionId, env) { if (!env.TRACE_KV) return null; const stored = await env.TRACE_KV.get(traceKey(sessionId), 'json').catch(() => null); return stored ? { ...stored, persistence: 'durable_kv' } : null; }
-function sessionIdFromPath(pathname) { const match = pathname.match(/^\/api\/voice\/session\/([^/]+)\/event$/); return match?.[1] || null; }
-async function proxyMutation(request, env, pathname) { const body = await request.clone().json().catch(() => null); const response = await fetchUpstream(pathname, request, env); if (!response.ok) return response; if (pathname === '/api/voice/session') { const payload = await response.clone().json().catch(() => null); return payload ? json(payload, response.status, env, request.headers.get('Origin') || '') : response; } const sessionId = sessionIdFromPath(pathname) || body?.sessionId; if (!sessionId) return response; try { const trace = await mirrorTrace(sessionId, env); return json({ ok: true, traceStore: 'durable_kv', trace }, response.status, env, request.headers.get('Origin') || ''); } catch { return json({ error: 'TRACE_KV_WRITE_FAILED', upstreamStatus: response.status }, 502, env, request.headers.get('Origin') || ''); } }
-export default { async fetch(request, env) { const url = new URL(request.url); const origin = request.headers.get('Origin') || ''; if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env, origin) }); if (request.method === 'GET' && url.pathname === '/') return landing(env, origin); if (request.method === 'GET' && url.pathname === '/favicon.ico') return new Response(null, { status: 204, headers: cors(env, origin) }); if (request.method === 'GET' && url.pathname === '/api/health') { const response = await fetchUpstream('/api/health' + url.search, request, env); const body = await response.json().catch(() => ({ ok: false })); body.config = { ...(body.config || {}), traceStore: env.TRACE_KV ? 'durable_kv' : 'worker_memory', traceUpstream: body.config?.traceStore || null }; return json(body, response.status, env, origin); } if (request.method === 'GET' && url.pathname.startsWith('/api/voice/session/') && url.pathname.endsWith('/trace')) { const sessionId = url.pathname.split('/').at(-2); const stored = await readDurableTrace(sessionId, env); if (stored) return json(stored, 200, env, origin); try { const trace = await mirrorTrace(sessionId, env); return json({ ...trace, persistence: 'durable_kv' }, 200, env, origin); } catch { return json({ error: 'TRACE_KV_READ_FAILED' }, 502, env, origin); } } if (url.pathname === '/api/voice/events' || url.pathname === '/api/voice/tts') return fetchUpstream(url.pathname + url.search, request, env); if (request.method === 'POST' && (url.pathname === '/api/voice/session' || url.pathname === '/api/voice/answer' || url.pathname === '/api/voice/end' || sessionIdFromPath(url.pathname))) return proxyMutation(request, env, url.pathname + url.search); return fetchUpstream(url.pathname + url.search, request, env); } };
+const activeTraceKey = (sessionId) => traceKey(sessionId) + ':active';
+
+async function mirrorTrace(sessionId, env) {
+  if (!env.TRACE_KV) throw new Error('TRACE_KV_BINDING_MISSING');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const trace = await fetchUpstreamTrace(sessionId, env);
+    if (!trace) throw new Error('TRACE_KV_SOURCE_UNAVAILABLE');
+    const ended = trace.session?.status === 'ended';
+    const key = ended ? traceKey(sessionId) : activeTraceKey(sessionId);
+    const persistent = { ...trace, persistence: 'durable_kv', persistedAt: new Date().toISOString() };
+    try {
+      // Reserve the permanent key for completed calls so that the final write
+      // does not compete with a just-flushed active snapshot on the same key.
+      await env.TRACE_KV.put(key, JSON.stringify(persistent), ended ? undefined : { expirationTtl: 3 * 3600 });
+      return persistent;
+    } catch (error) {
+      if (attempt === 1 || !/429|rate|too many/i.test(String(error))) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1100));
+    }
+  }
+}
+
+async function readDurableTrace(sessionId, env) {
+  if (!env.TRACE_KV) return null;
+  const [final, active] = await Promise.all([
+    env.TRACE_KV.get(traceKey(sessionId), 'json').catch(() => null),
+    env.TRACE_KV.get(activeTraceKey(sessionId), 'json').catch(() => null)
+  ]);
+  const stored = final?.session?.status === 'ended' ? final : active || final;
+  if (!stored) return null;
+  if (stored.session) {
+    const { token, ...publicSession } = stored.session;
+    stored.session = publicSession;
+  }
+  return { ...stored, persistence: 'durable_kv' };
+}
+
+function sessionIdFromPath(pathname) {
+  const match = pathname.match(/^\/api\/voice\/session\/([^/]+)\/event$/);
+  return match?.[1] || null;
+}
+
+async function proxyMutation(request, env, pathname) {
+  const origin = request.headers.get('Origin') || '';
+  const body = await request.clone().json().catch(() => null);
+  const response = await fetchUpstream(pathname, request, env);
+  if (!response.ok) return response;
+  const payload = await response.json().catch(() => null);
+  if (!payload) return json({ error: 'TRACE_ORIGIN_RESPONSE_INVALID' }, 502, env, origin);
+  if (pathname === '/api/voice/session') return json(payload, response.status, env, origin);
+  const sessionId = sessionIdFromPath(pathname) || body?.sessionId;
+  if (!sessionId) return json({ error: 'SESSION_NOT_FOUND' }, 404, env, origin);
+  try {
+    const trace = await mirrorTrace(sessionId, env);
+    const { session, ...ack } = payload;
+    return json({ ok: true, ...ack, ...(session ? { session: trace.session } : {}), traceStore: 'durable_kv', trace }, response.status, env, origin);
+  } catch {
+    return json({ error: 'TRACE_KV_WRITE_FAILED', upstreamStatus: response.status }, 502, env, origin);
+  }
+}
+export default { async fetch(request, env) { const url = new URL(request.url); const origin = request.headers.get('Origin') || ''; if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env, origin) }); if (request.method === 'GET' && url.pathname === '/') return landing(env, origin); if (request.method === 'GET' && url.pathname === '/favicon.ico') return new Response(null, { status: 204, headers: cors(env, origin) }); if (request.method === 'GET' && url.pathname === '/api/health') { const response = await fetchUpstream('/api/health' + url.search, request, env); const body = await response.json().catch(() => ({ ok: false })); body.config = { ...(body.config || {}), traceStore: env.TRACE_KV ? 'durable_kv' : 'worker_memory', traceUpstream: body.config?.traceStore || null }; return json(body, response.status, env, origin); } if (request.method === 'GET' && url.pathname.startsWith('/api/voice/session/') && url.pathname.endsWith('/trace')) { const sessionId = url.pathname.split('/').at(-2); const stored = await readDurableTrace(sessionId, env); if (stored?.session?.status === 'ended') return json(stored, 200, env, origin); try { const trace = await mirrorTrace(sessionId, env); return json(trace, 200, env, origin); } catch { return stored ? json(stored, 200, env, origin) : json({ error: 'TRACE_KV_READ_FAILED' }, 502, env, origin); } } if (url.pathname === '/api/voice/events' || url.pathname === '/api/voice/tts') return fetchUpstream(url.pathname + url.search, request, env); if (request.method === 'POST' && (url.pathname === '/api/voice/session' || url.pathname === '/api/voice/answer' || url.pathname === '/api/voice/end' || sessionIdFromPath(url.pathname))) return proxyMutation(request, env, url.pathname + url.search); return fetchUpstream(url.pathname + url.search, request, env); } };
