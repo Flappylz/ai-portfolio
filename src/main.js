@@ -9,7 +9,7 @@ const app = document.querySelector('#app');
 const githubUrl = 'https://github.com/Flappylz';
 const email = '760871196@qq.com';
 
-const state = { modeId: 'discovery', status: 'draft', score: 0, input: '', response: '', deliveryChecks: [], deliverySummary: '', voiceScenario: 'carrier', voiceInput: '', voiceStatus: 'sandbox', voiceCallStatus: 'idle', voiceMuted: false, voiceSubtitleVisible: true, voiceStep: 0, voiceMessages: [], voiceConversation: [], voiceLogs: [], voiceLogQuery: '', voiceLogScope: 'all', voiceTraceStatus: 'not loaded', voiceTraceEvents: [], voiceTraceWriteQueue: Promise.resolve(), voiceRound: 0, voiceLanguage: 'zh', voiceVoice: 'default', voiceInteractionType: 'voice_call', voiceModel: 'eleven_flash_v2_5', voiceModelSource: 'openai_direct', voiceAgentModel: 'openai/gpt-4.1-mini', voiceFastModel: 'openai/gpt-4.1-mini', voiceSlowModel: 'openai/gpt-4.1-mini', voiceSlowStatus: 'idle', voiceQualityPath: 'fast voice → slow validation', voiceAsrModel: 'openai/gpt-live-transcribe', voiceAsrFallback: false, voiceRecognition: null, voiceRecognitionActive: false, voiceVad: 'silero_vad', voiceNoiseReduction: true, voiceAllowInterruption: true, voiceSilenceStrategy: false, voiceHangupStrategy: false, voiceVoiceprintRecognition: false, voiceGenderRecognition: false, voiceAddresseeAwareFiltering: false, voiceStartWithVoiceCall: false, voiceUserMessagePosition: 'right', voiceSessionRelevanceRejection: false, voiceMaxCallTime: 1800, voiceTone: 'neutral', voicePitch: 1, voiceEmotion: 'neutral', voiceStability: 0.5, voiceSimilarity: 0.75, voiceStyle: 0.2, voiceSpeed: 1, voiceVolume: 1, voicePreviewText: '请试听当前的 ElevenLabs 语音配置。', voiceOutputFormat: 'mp3_44100_128', voiceChunkSchedule: '50,120,160,290', voiceBargeIn: 'server_vad', voicePartial: '', voiceTtsText: '', voiceTtsPartial: '', voiceAmplitude: 0, voiceAudioContext: null, voiceAnalyserSources: [], voiceWaveFrame: null, voiceInsights: { emotion: '待识别', age: '待识别', gender: '待识别', confidence: null }, runtimeMode: 'sandbox', voiceApiState: 'sandbox / simulated', voiceLatency: { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null }, voiceMetrics: { rtt: null, jitter: null, packetLoss: null, interrupt: null }, voiceSession: null, voiceRoom: null, voiceLocalTrack: null, voiceEventSocket: null, voiceTtsSocket: null, voiceAudio: null, voiceStatsTimer: null, voiceOutboundInit: false, events: [
+const state = { modeId: 'discovery', status: 'draft', score: 0, input: '', response: '', deliveryChecks: [], deliverySummary: '', voiceScenario: 'carrier', voiceInput: '', voiceStatus: 'sandbox', voiceCallStatus: 'idle', voiceMuted: false, voiceSubtitleVisible: true, voiceStep: 0, voiceMessages: [], voiceConversation: [], voiceLogs: [], voiceLogQuery: '', voiceLogScope: 'all', voiceTraceStatus: 'not loaded', voiceTraceEvents: [], voiceTraceWriteQueue: Promise.resolve(), voiceRound: 0, voiceLanguage: 'zh', voiceVoice: 'default', voiceInteractionType: 'voice_call', voiceModel: 'eleven_flash_v2_5', voiceModelSource: 'openai_direct', voiceAgentModel: 'openai/gpt-4.1-mini', voiceFastModel: 'openai/gpt-4.1-mini', voiceSlowModel: 'openai/gpt-4.1-mini', voiceSlowStatus: 'idle', voiceQualityPath: 'fast voice → slow validation', voiceAsrModel: 'openai/gpt-live-transcribe', voiceAsrFallback: false, voiceRecognition: null, voiceRecognitionActive: false, voiceVad: 'silero_vad', voiceNoiseReduction: true, voiceAllowInterruption: true, voiceSilenceStrategy: false, voiceHangupStrategy: false, voiceVoiceprintRecognition: false, voiceGenderRecognition: false, voiceAddresseeAwareFiltering: false, voiceStartWithVoiceCall: false, voiceUserMessagePosition: 'right', voiceSessionRelevanceRejection: false, voiceMaxCallTime: 1800, voiceTone: 'neutral', voicePitch: 1, voiceEmotion: 'neutral', voiceStability: 0.5, voiceSimilarity: 0.75, voiceStyle: 0.2, voiceSpeed: 1, voiceVolume: 1, voicePreviewText: '请试听当前的 ElevenLabs 语音配置。', voiceOutputFormat: 'mp3_44100_128', voiceChunkSchedule: '50,120,160,290', voiceBargeIn: 'server_vad', voicePartial: '', voiceTtsText: '', voiceTtsPartial: '', voiceAmplitude: 0, voiceAudioContext: null, voiceAnalyserSources: [], voiceWaveFrame: null, voiceInsights: { emotion: '未启用', age: '未启用', gender: '未启用', confidence: null }, runtimeMode: 'sandbox', voiceApiState: 'sandbox / simulated', voiceLatency: { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null }, voiceMetrics: { rtt: null, jitter: null, packetLoss: null, interrupt: null }, voiceSession: null, voiceRoom: null, voiceLocalTrack: null, voiceEventSocket: null, voiceTtsSocket: null, voiceAudio: null, voiceStatsTimer: null, voiceOutboundInit: false, events: [
   { time: '09:41:03', label: 'workspace initialized', tone: 'quiet' },
   { time: '09:41:11', label: 'agent schema loaded', tone: 'cyan' }
 ] };
@@ -68,7 +68,7 @@ function demoCallDuration() {
 
 function resetDemoCall() {
   state.voiceApiState = 'ready';
-  state.voiceQualityPath = 'fast voice → slow validation';
+  state.voiceQualityPath = '对话生成 → 并行核验';
   demoCallStartedAt = 0;
   demoCallEndedAt = 0;
   activeModels = null;
@@ -91,28 +91,133 @@ function resetDemoCall() {
   state.voiceMetrics = { rtt: null, jitter: null, packetLoss: null, interrupt: null };
 }
 
+const resumeFile = 'resume/fengliangze-ai-product-manager.pdf';
+const brandName = '冯良泽 · AI 产品经理';
+const portfolioStats = [
+  ['6 年', '产品经验'],
+  ['近 3 年', '实时语音与 Agent'],
+  ['20 人', '跨职能团队协作'],
+];
+const navItems = [
+  ['about', '关于我'],
+  ['projects', '作品'],
+  ['method', '方法论'],
+  ['contact', '联系'],
+];
+let activePage = '';
+
 function header() {
-  return '<header class="site-header"><a class="brand" href="#/" aria-label="返回交互式AI语音DEMO"><span class="brand-mark"><i></i><i></i></span><span><strong>交互式AI语音DEMO</strong><small>LIVE VOICE WORKBENCH</small></span></a><nav class="site-nav" aria-label="主导航"><a class="nav-apps" href="#/apps">Demo</a>' + extLink(githubUrl, 'GitHub', 'nav-external') + '<a class="nav-cta" href="mailto:' + email + '">联系我</a></nav></header>';
+  const links = navItems.map(([route, label]) => '<a href="#/' + route + '"' +
+    (activePage === route ? ' aria-current="page"' : '') + '>' + label + '</a>').join('');
+  return '<header class="site-header"><a class="brand" href="#/" aria-label="冯良泽作品集首页">' +
+    '<span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span><strong>' + brandName +
+    '</strong><small>实时语音与智能呼叫中心</small></span></a><nav class="site-nav" aria-label="主导航">' +
+    links + '</nav></header>';
 }
+
 function footer() {
-  return '<footer class="site-footer"><div class="footer-brand"><span class="brand-mark"><i></i><i></i></span><div><strong>交互式AI语音DEMO</strong><p>实时语音、Agent 工作流和交付级观测。</p></div></div><div class="footer-links">' + extLink(githubUrl, 'GitHub') + '<a href="mailto:' + email + '">' + email + '</a><span>© 2026</span></div></footer>';
+  return '<footer class="site-footer"><div class="footer-brand"><div><strong>' + brandName +
+    '</strong><p>实时语音 · Voice Agent · 产品交付</p></div></div><div class="footer-links">' +
+    extLink(githubUrl, 'GitHub') + '<a href="mailto:' + email + '">邮件联系</a><span>© 2026</span></div></footer>';
 }
-function shell(content) { return header() + '<main>' + content + '</main>' + footer(); }
-function appCard(app) {
-  const action = app.route
-    ? '<a class="app-open" href="' + app.route + '">打开应用 <span>↗</span></a>'
-    : '<a class="app-open" href="' + esc(app.url) + '" target="_blank" rel="noreferrer">打开公开 Demo <span>↗</span></a>';
-  return '<article class="app-card app-' + app.accent + '" data-app-route="' + esc(app.route || app.url) + '" tabindex="0"><div class="app-card-art"><span>' + app.number + '</span><b>' + app.id.toUpperCase() + '</b><i></i><i></i><i></i></div><div class="app-card-body"><div class="app-card-head"><span class="app-status">' + app.label + '</span><span class="app-type">APP</span></div><h3>' + app.title + '</h3><p>' + app.description + '</p><div class="app-tags">' + app.tags.map((tag) => '<span>' + tag + '</span>').join('') + '</div>' + action + '</div></article>';
+
+function shell(content) {
+  return header() + '<main id="main-content">' + content + '</main>' + footer();
 }
+
+function resumeLink() {
+  return '<a class="button primary resume-download" href="' + asset(resumeFile) +
+    '" download>下载脱敏简历 <span aria-hidden="true">↓</span></a>';
+}
+
+function appCard(item) {
+  return '<article class="app-card" data-app-route="' + esc(item.route) + '">' +
+    '<div class="app-card-head"><span class="case-index">' + esc(item.number) + '</span>' +
+    '<span class="app-status">公开 Demo</span></div><div class="app-card-body">' +
+    '<h3>' + esc(item.productTitle) + '</h3><p>' + esc(item.value) + '</p>' +
+    '<div class="case-card-result"><span>演示范围</span><strong>' + esc(item.result) + '</strong></div>' +
+    '<div class="case-card-actions"><a class="app-open" href="' + item.route + '">体验语音 <span aria-hidden="true">↗</span></a>' +
+    '<a href="' + item.caseRoute + '">查看案例 <span aria-hidden="true">→</span></a></div></div></article>';
+}
+
 function appLauncher() {
-  return '<section class="app-launcher section-pad" id="apps"><div class="launcher-head"><div><span class="section-label">VOICE APPLICATIONS / 3 LIVE PRODUCTS</span><h1>选择一个场景，直接开始通话。</h1></div><p>三个真实业务场景，进入后直接体验语音通话。</p></div><div class="app-grid">' + apps.map(appCard).join('') + '</div></section>';
+  const facts = portfolioStats.map(([value, label]) =>
+    '<div><dt>' + label + '</dt><dd>' + value + '</dd></div>').join('');
+  return shell('<section class="app-launcher section-pad"><div class="portfolio-hero"><div>' +
+    '<p class="portfolio-kicker">AI 产品经理 · 实时语音与智能呼叫中心</p>' +
+    '<h1>冯良泽</h1><p class="portfolio-lede">我做端到端的语音 Agent 产品，从通话体验和业务策略，到指标定义、测试验收与上线观测。</p>' +
+    '</div><dl class="portfolio-stats" aria-label="简历中的关键经历">' + facts + '</dl></div>' +
+    '<div class="launcher-head"><h2>作品</h2>' + resumeLink() + '</div>' +
+    '<div class="app-grid">' + apps.map(appCard).join('') + '</div></section>');
 }
+
 function homeView() {
-  return voiceScenarioView('carrier');
+  return appLauncher();
 }
+
 function appsView() {
-  return voiceScenarioView('carrier');
+  return appLauncher();
 }
+
+function aboutView() {
+  return shell('<section class="page-intro section-pad portfolio-page"><h1>关于我</h1>' +
+    '<p class="portfolio-lede">冯良泽，AI 产品经理。简历记录了 6 年产品经验，近 3 年聚焦实时语音、Agent 与智能呼叫中心交互。</p>' +
+    '<h2>我负责的工作</h2><p>在百融云创，我主导 WebCall 产品方案，参与端到端语音 Agent 设计，并定义通话状态、TTS 配置契约和验收指标。此前在中信百信银行负责 3D 数字人直播间从产品设计到上线，在小冰协调研发、设计、美术和运营等 20 人团队推进正式版本。</p>' +
+    '<p>教育经历包括北京大学艺术硕士和中国传媒大学广播电视编导本科。</p>' + resumeLink() +
+    '</section>');
+}
+
+const caseSections = [
+  ['problem', '问题与用户'],
+  ['decision', '我的判断与方案'],
+  ['tradeoff', '关键取舍'],
+  ['result', '结果与指标定义'],
+];
+
+function caseStudyView(item) {
+  const { caseStudy, workflow } = voiceScenarios.find((scenario) => scenario.id === item.id);
+  const sections = caseSections.map(([key, title]) =>
+    '<section><h3>' + title + '</h3><p>' + esc(caseStudy[key]) + '</p></section>').join('');
+  return '<article class="portfolio-case"><header><div><span class="case-index">' + esc(item.number) + '</span>' +
+    '<h2>' + esc(item.productTitle) + '</h2><p>' + esc(item.value) + '</p></div>' +
+    '<a class="button primary" href="' + item.route + '">体验语音 <span aria-hidden="true">↗</span></a></header>' +
+    '<div class="case-sections">' + sections + '</div>' +
+    '<details class="case-technical"><summary>技术架构与验证口径</summary>' +
+    '<p>麦克风 → LiveKit WebRTC → 语音识别与断句 → 规则直答或模型核验 → ElevenLabs 流式播报。' +
+    '通话页可展开模型、指标与日志，核对同一次会话中的事件。</p><ol>' +
+    workflow.map((step) => '<li>' + esc(step) + '</li>').join('') + '</ol>' +
+    '<p>公开 Demo 使用真实语音链路，业务与题库使用演示数据。</p></details></article>';
+}
+
+function projectsView(id) {
+  const selected = id ? apps.filter((item) => item.id === id) : apps;
+  if (!selected.length) return notFoundView();
+  const relatedCases = apps.map((item) => '<a href="' + item.caseRoute + '"' +
+    (item.id === id ? ' aria-current="page"' : '') + '>' + esc(item.productTitle) + '</a>').join('');
+  return shell('<section class="page-intro section-pad portfolio-page"><h1>作品</h1>' +
+    '<p class="portfolio-lede">三个真实通话 Demo，分别演示呼入客服、票面规则解释与连续语音问答。</p>' +
+    '<nav class="case-nav" aria-label="浏览案例">' + relatedCases + '</nav>' + selected.map(caseStudyView).join('') + '</section>');
+}
+
+function methodView() {
+  return shell('<section class="page-intro section-pad portfolio-page"><h1>方法论</h1>' +
+    '<p class="portfolio-lede">把语音体验拆成可以测试的通话行为，再决定优化哪一段。</p>' +
+    '<div class="method-grid">' +
+    '<article><h2>先定义有效回复</h2><p>我把首段有效回复时延定义为用户停止说话到浏览器播出有用答复的时间。欢迎语和等待话术单独统计。验收先听答复是否解决问题，再测识别、生成、播报首包和整段时延。</p><p>业务交付还会跟踪接通率、有效对话率、任务成功率、转人工率与 P95 端到端时延。每项指标都要带时间窗、样本和分母。</p></article>' +
+    '<article><h2>为速度和正确性设边界</h2><p>能被公开规则回答的问题，我用快路径返回可核对的事实，并在确认匹配后播出已合成的语音。涉及实时业务信息、缺字段或高风险动作时，交给模型解释、并行核验或澄清。打断优先停止旧播报，避免用户纠正后还在听旧答案。</p></article>' +
+    '<article><h2>让问题能重放和复测</h2><p>我把接通、语音转写、命中、播报和结束串在同一个会话里。复测用相同的录音输入，对照真实远端音频、事件时间和答复内容。上线后分别观察成功率、异常类型和尾延迟，保留灰度与回滚口径。</p></article>' +
+    '</div></section>');
+}
+
+function contactView() {
+  return shell('<section class="page-intro section-pad portfolio-page"><h1>联系</h1>' +
+    '<p class="portfolio-lede">可通过邮件联系我，或在 GitHub 查阅公开作品。</p>' +
+    '<ul class="portfolio-contact"><li><a href="mailto:' + email + '">' + email + '</a></li><li>' +
+    extLink(githubUrl, 'GitHub · Flappylz') + '</li></ul>' + resumeLink() +
+    '<figure class="portfolio-qr"><img src="' + asset('assets/portfolio-qr.svg') +
+    '" width="116" height="116" alt="扫描二维码访问作品集"><figcaption>手机扫码查看作品集</figcaption></figure></section>');
+}
+
 function activeVoiceScenario() { return voiceScenarios.find((item) => item.id === state.voiceScenario) || voiceScenarios[0]; }
 function stopVoiceAnalyser() {
   if (state.voiceWaveFrame) window.cancelAnimationFrame(state.voiceWaveFrame);
@@ -215,7 +320,7 @@ function resetVoiceState(id) {
   stopVoiceAnalyser();
   if (state.voiceEventSocket) state.voiceEventSocket.close();
   if (state.voiceStatsTimer) window.clearInterval(state.voiceStatsTimer);
-  state.voiceScenario = id; state.voiceInput = ''; state.voiceStatus = next.direction === 'outbound' ? 'ringing' : 'idle'; state.voiceCallStatus = next.direction === 'outbound' ? 'ringing' : 'idle'; state.voiceStep = 0; state.voiceMessages = []; state.voiceConversation = []; state.voiceLogs = []; state.voiceLogQuery = ''; state.voiceLogScope = 'all'; state.voiceTraceStatus = 'not loaded'; state.voiceTraceEvents = []; state.voiceTraceWriteQueue = Promise.resolve(); state.voiceVolume = 1; state.voicePreviewText = '请试听当前的 ElevenLabs 语音配置。'; state.voiceRound = 0; state.runtimeMode = isDemo() ? 'ready' : voiceRuntimeUrl() ? 'live' : 'sandbox'; state.voiceApiState = isDemo() ? '待接通' : voiceRuntimeUrl() ? 'live ready' : 'sandbox / simulated'; state.voicePartial = ''; state.voiceTtsText = ''; state.voiceTtsPartial = ''; state.voiceAsrFallback = false; state.voiceRecognition = null; state.voiceRecognitionActive = false; state.voiceInsights = { emotion: '待识别', age: '待识别', gender: '待识别', confidence: null }; state.voiceLatency = { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null }; state.voiceMetrics = { rtt: null, jitter: null, packetLoss: null, interrupt: null }; state.voiceSlowStatus = 'idle'; state.voiceQualityPath = 'fast voice → slow validation'; state.voiceSession = null; state.voiceRoom = null; state.voiceEventSocket = null; state.voiceStatsTimer = null; state.voiceOutboundInit = false;
+  state.voiceScenario = id; state.voiceInput = ''; state.voiceStatus = next.direction === 'outbound' ? 'ringing' : 'idle'; state.voiceCallStatus = next.direction === 'outbound' ? 'ringing' : 'idle'; state.voiceStep = 0; state.voiceMessages = []; state.voiceConversation = []; state.voiceLogs = []; state.voiceLogQuery = ''; state.voiceLogScope = 'all'; state.voiceTraceStatus = 'not loaded'; state.voiceTraceEvents = []; state.voiceTraceWriteQueue = Promise.resolve(); state.voiceVolume = 1; state.voicePreviewText = '请试听当前的 ElevenLabs 语音配置。'; state.voiceRound = 0; state.runtimeMode = isDemo() ? 'ready' : voiceRuntimeUrl() ? 'live' : 'sandbox'; state.voiceApiState = isDemo() ? '待接通' : voiceRuntimeUrl() ? 'live ready' : 'sandbox / simulated'; state.voicePartial = ''; state.voiceTtsText = ''; state.voiceTtsPartial = ''; state.voiceAsrFallback = false; state.voiceRecognition = null; state.voiceRecognitionActive = false; state.voiceInsights = { emotion: '未启用', age: '未启用', gender: '未启用', confidence: null }; state.voiceLatency = { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null }; state.voiceMetrics = { rtt: null, jitter: null, packetLoss: null, interrupt: null }; state.voiceSlowStatus = 'idle'; state.voiceQualityPath = '对话生成 → 并行核验'; state.voiceSession = null; state.voiceRoom = null; state.voiceEventSocket = null; state.voiceStatsTimer = null; state.voiceOutboundInit = false;
 }
 function voiceScenarioView(id) {
   resetVoiceState(id);
@@ -224,14 +329,14 @@ function voiceScenarioView(id) {
   const slowModel = isDemo() ? activeModels?.slowModel || demoPreferences.slowModel : state.voiceSlowModel;
   const asrModel = isDemo() ? activeModels?.asrModel || demoPreferences.asrModel : state.voiceAsrModel;
   const ttsModel = isDemo() ? activeModels?.ttsModel || demoPreferences.ttsModel : state.voiceModel;
-  const messages = state.voiceConversation.length ? state.voiceConversation.map((item) => '<div class="voice-message ' + item.role + '"><span>' + (item.role === 'user' ? 'YOU' : 'AGENT') + '<small>' + esc(item.time) + '</small></span><p>' + esc(item.text) + '</p></div>').join('') : '<div class="voice-empty">' + (scenario.direction === 'outbound' ? '接听后，Agent 会主动开始提问。' : '拨号后，Agent 会先播放欢迎语。') + '</div>';
+  const messages = state.voiceConversation.length ? state.voiceConversation.map((item) => '<div class="voice-message ' + item.role + '"><span>' + (item.role === 'user' ? '你' : '助手') + '<small>' + esc(item.time) + '</small></span><p>' + esc(item.text) + '</p></div>').join('') : '<div class="voice-empty">' + (scenario.direction === 'outbound' ? '接听后，Agent 会主动开始提问。' : '拨号后，Agent 会先播放欢迎语。') + '</div>';
   const logs = state.voiceLogs.slice(-6).reverse().map((item) => '<li><time>' + item.time + '</time><b class="event-dot ' + item.tone + '"></b><span>' + item.label + '</span></li>').join('');
   const steps = scenario.workflow.map((step, index) => '<div class="voice-step ' + (state.voiceStep >= index + 1 ? 'active' : '') + '"><b>0' + (index + 1) + '</b><span>' + step + '</span></div>').join('');
-  const knowledge = scenario.knowledge.map((item) => '<li><div><b>' + item[0] + '</b><small>' + item[1] + '</small></div>' +
-    (isDemo() ? '' : '<em>' + item[2] + '</em>') + '</li>').join('');
+  const knowledge = scenario.knowledge.map(([title, description]) =>
+    '<li><div><b>' + title + '</b><small>' + description + '</small></div></li>').join('');
   const metric = (value, unit) => value === null ? '<b class="metric-null">—</b>' : '<b>' + value + '<small>' + unit + '</small></b>';
-  const sessionLabel = state.voiceSession?.sessionId ? state.voiceSession.sessionId.slice(0, 14) : 'not started';
-  const insightCards = [['情绪', state.voiceInsights.emotion, 'emotion'], ['年龄', state.voiceInsights.age, 'age'], ['性别', state.voiceInsights.gender, 'gender']].map((item) => '<div class="insight-card"><span>' + item[0] + '</span><b>' + esc(item[1]) + '</b><small>' + (state.voiceInsights.confidence ? state.voiceInsights.confidence + '% confidence' : 'SANDBOX / DEMO') + '</small></div>').join('');
+  const sessionLabel = state.voiceSession?.sessionId ? state.voiceSession.sessionId.slice(0, 14) : '尚未建立';
+  const insightCards = [['情绪', state.voiceInsights.emotion, 'emotion'], ['年龄', state.voiceInsights.age, 'age'], ['性别', state.voiceInsights.gender, 'gender']].map((item) => '<div class="insight-card"><span>' + item[0] + '</span><b>' + esc(item[1]) + '</b><small>' + (state.voiceInsights.confidence ? state.voiceInsights.confidence + '% 置信度' : '演示占位') + '</small></div>').join('');
   const architecture = ['浏览器麦克风 / 文本', 'LiveKit WebRTC 房间', 'ASR + VAD + Agent 状态机', '快模型即时应答', '慢模型并行核验', '知识库 / 工具调用', 'ElevenLabs 流式 TTS', '字幕、指标与 Trace'];
   const sequenceRows = [
     ['01', '建立会话', 'Browser', 'LiveKit', '短期 token、room、traceId'],
@@ -242,8 +347,8 @@ function voiceScenarioView(id) {
     ['06', '下行播放', 'ElevenLabs', 'LiveKit → Browser', '字幕、波形、barge-in 可观测'],
     ['07', '收尾归档', 'Agent', 'Trace Store', '完整会话、指标与错误原因'],
   ];
-  const sequenceDiagram = '<div class="sequence-block"><div class="sequence-block-head"><div><span class="section-label">DETAILED SEQUENCE</span><h3>一通电话如何跑完。</h3></div><span>trace-first / event-driven</span></div><div class="sequence-lanes"><span>STEP</span><span>EVENT</span><span>FROM</span><span>TO</span><span>EVIDENCE</span></div>' + sequenceRows.map((row) => '<div class="sequence-row"><b>' + row[0] + '</b><strong>' + row[1] + '</strong><span>' + row[2] + '</span><i>→</i><span>' + row[3] + '</span><small>' + row[4] + '</small></div>').join('') + '</div>';
-  const detailPages = '<section class="voice-detail-pages" id="voice-details"><article class="voice-detail-page"><div><span class="section-label">SYSTEM ARCHITECTURE / ' + scenario.title + '</span><h2>从通话到可交付的实时链路。</h2><p>下滑查看当前 Demo 的完整链路。首屏负责体验，下面负责证明系统如何工作。</p></div><div class="detail-flow">' + architecture.map((item, index) => '<div><b>0' + (index + 1) + '</b><span>' + item + '</span></div>').join('<i>→</i>') + '</div>' + sequenceDiagram + '<div class="detail-evidence-grid"><div><span>AGENT</span><b>' + esc(fastModel) + '</b><small>当前对话模型</small></div><div><span>ASR</span><b>' + esc(asrModel) + '</b><small>当前转写模型</small></div><div><span>TTS</span><b>' + esc(ttsModel) + '</b><small>ElevenLabs 流式模型</small></div><div><span>TRANSPORT</span><b>LiveKit WebRTC</b><small>WebSocket TTS fallback</small></div><div><span>STATUS</span><b>' + state.voiceCallStatus.toUpperCase() + '</b><small>' + state.runtimeMode.toUpperCase() + '</small></div><div><span>TRACE</span><b>' + esc(state.voiceSession?.traceId || sessionLabel) + '</b><small>事件可追溯</small></div></div></article><article class="voice-detail-page"><div><span class="section-label">KNOWLEDGE + BUSINESS FLOW</span><h2>业务流程和知识命中放在同一页。</h2></div><div class="detail-two-col"><div><h3>业务流程</h3><ol class="business-flow">' + scenario.workflow.map((item, index) => '<li><b>0' + (index + 1) + '</b><span>' + item + '</span></li>').join('') + '</ol></div><div><h3>知识库</h3><ul class="detail-knowledge">' + knowledge + '</ul></div></div><div class="detail-boundary"><span>BOUNDARY</span><p>公开数据为模拟场景；真实票价、套餐、库存、客户资料和生产权限不会进入前端。失败时保留已确认信息，并进入文本降级或人工转接。</p></div></article></section>';
+  const sequenceDiagram = '<div class="sequence-block"><div class="sequence-block-head"><div><span class="section-label">通话时序</span><h3>通话各阶段的事件与证据</h3></div></div><div class="sequence-lanes"><span>步骤</span><span>事件</span><span>来源</span><span>去向</span><span>证据</span></div>' + sequenceRows.map((row) => '<div class="sequence-row"><b>' + row[0] + '</b><strong>' + row[1] + '</strong><span>' + row[2] + '</span><i>→</i><span>' + row[3] + '</span><small>' + row[4] + '</small></div>').join('') + '</div>';
+  const detailPages = '<details class="voice-detail-pages" id="voice-details" data-detail-key="technical"><summary>技术架构与场景规则</summary><article class="voice-detail-page"><div><span class="section-label">技术架构 · ' + scenario.title + '</span><h2>实时语音链路</h2></div><div class="detail-flow">' + architecture.map((item, index) => '<div><b>0' + (index + 1) + '</b><span>' + item + '</span></div>').join('<i>→</i>') + '</div>' + sequenceDiagram + '<div class="detail-evidence-grid"><div><span>AGENT</span><b>' + esc(fastModel) + '</b><small>当前对话模型</small></div><div><span>语音识别（ASR）</span><b>' + esc(asrModel) + '</b><small>当前转写模型</small></div><div><span>TTS</span><b>' + esc(ttsModel) + '</b><small>ElevenLabs 流式模型</small></div><div><span>传输</span><b>LiveKit WebRTC</b><small>WebSocket TTS fallback</small></div><div><span>STATUS</span><b>' + state.voiceCallStatus.toUpperCase() + '</b><small>' + state.runtimeMode.toUpperCase() + '</small></div><div><span>TRACE</span><b>' + esc(state.voiceSession?.traceId || sessionLabel) + '</b><small>事件可追溯</small></div></div></article><article class="voice-detail-page"><div><span class="section-label">业务流程与知识库</span><h2>场景规则和实施边界</h2></div><div class="detail-two-col"><div><h3>业务流程</h3><ol class="business-flow">' + scenario.workflow.map((item, index) => '<li><b>0' + (index + 1) + '</b><span>' + item + '</span></li>').join('') + '</ol></div><div><h3>知识库</h3><ul class="detail-knowledge">' + knowledge + '</ul></div></div><div class="detail-boundary"><span>数据边界</span><p>公开数据为模拟场景；真实票价、套餐、库存、客户资料和生产权限不会进入前端。失败时保留已确认信息，并进入文本降级或人工转接。</p></div></article></details>';
   const latestMessage = [...state.voiceMessages].reverse()[0];
   const liveCaptionText = state.voicePartial || state.voiceTtsPartial || state.voiceTtsText || latestMessage?.text || '';
   const liveCaptionRole = state.voicePartial ? 'YOU · ASR PARTIAL' : (state.voiceTtsPartial || state.voiceTtsText || latestMessage?.role === 'assistant' ? 'AGENT · LIVE CAPTION' : 'LIVE CAPTION');
@@ -254,7 +359,7 @@ function voiceScenarioView(id) {
     captionRow('你' + (state.voicePartial ? ' · 正在转写' : ''), state.voicePartial || latestUser, '你的话会实时转写', 'user') +
     captionRow('语音助手', state.voiceTtsPartial || state.voiceTtsText, '助手的播报会在这里显示', 'assistant') + '</div>';
   const liveCaption = state.voiceSubtitleVisible && isDemo() ? demoCaptions : state.voiceSubtitleVisible ? '<div class="live-subtitle ' + (liveCaptionText ? 'has-text' : 'placeholder') + '" role="status" aria-live="polite"><span>' + liveCaptionRole + '</span><p>' + esc(liveCaptionText || '说话时，实时字幕会显示在这里') + '</p></div>' : '';
-  const transcriptPanel = state.voiceSubtitleVisible ? '<div class="voice-transcript"><div class="transcript-head"><span>' + (isDemo() ? '完整通话记录' : 'ASR / TTS TRANSCRIPT') + ' · ' + state.voiceConversation.length + ' TURNS</span><b>' + state.voiceCallStatus.toUpperCase() + '</b></div><div class="transcript-layer partial"><span>ASR PARTIAL / LIVE</span><p>' + esc(state.voicePartial || '等待用户说话…') + '</p></div><div class="conversation-thread" aria-live="polite">' + messages + '</div><div class="transcript-layer tts"><span>TTS PLAYBACK / LIVE</span><p>' + esc(state.voiceTtsPartial || state.voiceTtsText || '等待 Agent 播报…') + '</p></div></div>' : '<div class="subtitle-hidden">字幕已隐藏。你仍可以在右侧日志与指标面板查看事件。</div>';
+  const transcriptPanel = state.voiceSubtitleVisible ? '<div class="voice-transcript"><div class="transcript-head"><span>' + (isDemo() ? '完整通话记录' : 'ASR / TTS TRANSCRIPT') + ' · ' + state.voiceConversation.length + ' 轮</span><b>' + state.voiceCallStatus.toUpperCase() + '</b></div><div class="transcript-layer partial"><span>实时转写（ASR）</span><p>' + esc(state.voicePartial || '等待用户说话…') + '</p></div><div class="conversation-thread" aria-live="polite">' + messages + '</div><div class="transcript-layer tts"><span>播报字幕（TTS）</span><p>' + esc(state.voiceTtsPartial || state.voiceTtsText || '等待 Agent 播报…') + '</p></div></div>' : '<div class="subtitle-hidden">字幕已隐藏。你仍可以在右侧日志与指标面板查看事件。</div>';
   const agentAvatar = '<div class="agent-identity"><div class="agent-avatar ' + scenario.accent + '">' + scenario.title.slice(0, 1) + '</div><div><b>' + esc(scenario.agentName || scenario.title) + '</b><small>' + esc(scenario.agentRole || 'Voice Agent') + '</small></div></div>';
   const option = (value, current, label) => '<option value="' + esc(value) + '"' + (current === value ? ' selected' : '') + '>' + label + '</option>';
   const settingsDisclosure = (title, hint, body, open = false) => '<details class="settings-disclosure"' + (open ? ' open' : '') + '><summary><span>' + title + '</span><small>' + hint + '</small><b>⌄</b></summary><div class="settings-disclosure-body">' + body + '</div></details>';
@@ -305,8 +410,8 @@ function voiceScenarioView(id) {
     return scopeMatch && (!traceQuery || haystack.includes(traceQuery));
   });
   const traceRows = filteredTrace.slice().reverse().map((event) => '<li><time>' + esc(traceEventTime(event)) + '</time><b class="event-dot ' + (event.type === 'error' ? 'orange' : event.type === 'ended' ? 'quiet' : 'cyan') + '"></b><span>' + esc(traceEventLabel(event)) + '</span></li>').join('') || '<li class="trace-empty">没有匹配的事件</li>';
-  const tracePanel = '<details class="observe-detail trace-query-panel" open><summary>' + (isDemo() ? '会话日志' : 'SESSION LOG QUERY') + ' <span>' + filteredTrace.length + ' / ' + traceSource.length + '</span></summary><div class="trace-query-tools"><input type="search" placeholder="搜索事件、文本或错误码" value="' + esc(state.voiceLogQuery) + '" data-voice-log-query><select data-voice-log-scope><option value="all" ' + (state.voiceLogScope === 'all' ? 'selected' : '') + '>全部事件</option><option value="partial_transcript" ' + (state.voiceLogScope === 'partial_transcript' ? 'selected' : '') + '>ASR partial</option><option value="final_transcript" ' + (state.voiceLogScope === 'final_transcript' ? 'selected' : '') + '>ASR final</option><option value="tts_text" ' + (state.voiceLogScope === 'tts_text' ? 'selected' : '') + '>TTS text</option><option value="knowledge_hit" ' + (state.voiceLogScope === 'knowledge_hit' ? 'selected' : '') + '>Knowledge</option><option value="error" ' + (state.voiceLogScope === 'error' ? 'selected' : '') + '>Error</option></select><button type="button" class="trace-refresh" data-voice-trace-load ' + (!state.voiceSession?.sessionId ? 'disabled' : '') + '>刷新 Trace</button></div><div class="trace-query-status">' + esc(state.voiceTraceStatus) + ' · trace ' + esc(state.voiceSession?.traceId || 'not started') + '</div><ul class="voice-log trace-query-results">' + traceRows + '</ul></details>';
-  const conversationArchive = '<details class="observe-detail conversation-archive" open><summary>' + (isDemo() ? '完整对话' : 'FULL CONVERSATION') + ' <span>' + state.voiceConversation.length + ' turns</span></summary><div class="archive-meta">ASR final + TTS committed · 按时间顺序保留整段会话</div><div class="archive-thread">' + messages + '</div></details>';
+  const tracePanel = '<details class="observe-detail trace-query-panel" data-detail-key="trace"><summary>' + (isDemo() ? '会话日志' : 'SESSION LOG QUERY') + ' <span>' + filteredTrace.length + ' / ' + traceSource.length + '</span></summary><div class="trace-query-tools"><input type="search" placeholder="搜索事件、文本或错误码" value="' + esc(state.voiceLogQuery) + '" data-voice-log-query><select data-voice-log-scope><option value="all" ' + (state.voiceLogScope === 'all' ? 'selected' : '') + '>全部事件</option><option value="partial_transcript" ' + (state.voiceLogScope === 'partial_transcript' ? 'selected' : '') + '>实时转写（ASR）</option><option value="final_transcript" ' + (state.voiceLogScope === 'final_transcript' ? 'selected' : '') + '>最终转写</option><option value="tts_text" ' + (state.voiceLogScope === 'tts_text' ? 'selected' : '') + '>播报文本（TTS）</option><option value="knowledge_hit" ' + (state.voiceLogScope === 'knowledge_hit' ? 'selected' : '') + '>知识库命中</option><option value="error" ' + (state.voiceLogScope === 'error' ? 'selected' : '') + '>错误</option></select><button type="button" class="trace-refresh" data-voice-trace-load ' + (!state.voiceSession?.sessionId ? 'disabled' : '') + '>刷新日志</button></div><div class="trace-query-status">' + esc(state.voiceTraceStatus) + ' · trace ' + esc(state.voiceSession?.traceId || '尚未建立') + '</div><ul class="voice-log trace-query-results">' + traceRows + '</ul></details>';
+  const conversationArchive = '<details class="observe-detail conversation-archive" data-detail-key="archive"><summary>' + (isDemo() ? '完整对话' : 'FULL CONVERSATION') + ' <span>' + state.voiceConversation.length + ' 轮</span></summary><div class="archive-meta">按时间保留最终转写和播报</div><div class="archive-thread">' + messages + '</div></details>';
   const callActive = isDemo() ? ['connecting', 'connected'].includes(state.voiceCallStatus) || Boolean(state.voiceRoom) : ['connecting', 'connected', 'error'].includes(state.voiceCallStatus);
   const micStatus = state.voiceLocalTrack
     ? (isDemo() && state.voiceMuted ? '麦克风已静音' : '麦克风已开启')
@@ -327,7 +432,7 @@ function voiceScenarioView(id) {
   const sessionReadout = isDemo()
     ? '<time class="voice-call-timer" aria-label="通话时长">' + demoCallDuration() + '</time>'
     : '<small>trace ' + esc(state.voiceSession?.traceId || sessionLabel) + '</small>';
-  const modelLabel = isDemo() ? agentConfirmed ? '本次通话模型' : '即将使用的模型' : 'MODEL ROUTING';
+  const modelLabel = state.runtimeMode === 'sandbox' ? '模拟配置' : agentConfirmed ? '本次通话模型' : '即将使用的模型';
   const withEffort = (model, lane) => {
     const effort = activeModels?.[lane + 'ReasoningEffort'] || demoPreferences.voiceConfig[lane + 'ReasoningEffort'];
     return esc(model) + (isDemo() && effort && !model.includes('/gpt-4') ? ' · ' + esc(effort) : '');
@@ -335,11 +440,30 @@ function voiceScenarioView(id) {
   const fastDisplay = withEffort(fastModel, 'fast');
   const slowDisplay = withEffort(slowModel, 'slow');
   const displayVoice = isDemo() ? settingsPanel.voiceName(activeModels?.voiceId || demoPreferences.voiceId) : state.voiceVoice;
-  const detailsLink = '<a class="detail-link detail-link-primary" href="#voice-details">查看 Demo 详情 ↗</a>';
-  return shell('<section class="voice-screen section-pad" ' + (isDemo() ? 'data-mobile-panel="' + selectedMobilePanel + '" ' : '') + 'data-direction="' + scenario.direction + '"><div class="voice-screen-head"><div><span class="section-label">' + (isDemo() ? (scenario.direction === "outbound" ? "外呼" : "呼入") : "INTERACTIVE AI VOICE DEMO / " + scenario.direction.toUpperCase()) + '</span><h1>' + scenario.title + '</h1><p>' + scenario.subtitle + '</p></div><div class="voice-top-actions"><span class="runtime-chip ' + state.runtimeMode + '">' + (isDemo() && state.runtimeMode === 'ready' ? '待接通' : state.runtimeMode.toUpperCase()) + (state.runtimeMode === 'sandbox' ? ' / SIMULATED' : '') + '</span><div class="scenario-tabs" role="tablist" aria-label="语音场景">' + voiceScenarios.map((item) => '<a role="tab" aria-selected="' + (item.id === scenario.id) + '" class="' + (item.id === scenario.id ? 'selected' : '') + '" href="#/apps/voice?scenario=' + item.id + '">' + item.title + '</a>').join('') + '</div></div></div>' + (isDemo() ? mobileNav : '') + '<div class="voice-console"><aside class="voice-context-panel"><div class="panel-title"><span>' + (isDemo() ? '场景' : 'SCENARIO') + '</span><b>' + scenario.direction.toUpperCase() + '</b></div><div class="context-intro"><span class="scenario-icon">' + scenario.title.slice(0, 1) + '</span><div><h2>' + scenario.title + '</h2><p>默认音色：' + esc(scenario.defaultVoice || 'server preset') + '</p></div></div>' + (isDemo() ? settingsButton : '') + '<div class="context-meta"><span>SESSION</span><b>' + esc(sessionLabel) + '</b><span>TRANSPORT</span><b>LiveKit WebRTC</b><span>TTS MODEL</span><b>' + esc(ttsModel) + '</b><span>FAST MODEL</span><b>' + esc(fastModel) + '</b><span>SLOW MODEL</span><b>' + esc(slowModel) + '</b><span>ASR</span><b>' + esc(asrModel) + '</b><span>VOICE</span><b>' + esc(displayVoice === 'default' ? isDemo() ? '场景默认' : 'server default' : displayVoice) + '</b></div><div class="panel-title workflow-title"><span>' + (isDemo() ? '业务流程' : 'WORKFLOW') + '</span><b>' + state.voiceStep + '/' + scenario.workflow.length + '</b></div><div class="voice-workflow compact">' + steps + '</div>' + (isDemo() ? '' : oldSettings) + detailsLink + '</aside><section class="voice-stage"><div class="stage-top"><div>' + agentAvatar + '<span class="mini-label">VOICE CALL</span><b>' + (scenario.direction === 'outbound' ? 'Agent 主动来电' : '用户主动拨号') + '</b></div><span class="voice-state ' + state.voiceStatus + '"><i></i>' + chipText + '</span></div><div class="call-session-strip"><span>' + (state.voiceCallStatus === 'idle' ? 'READY TO CONNECT' : 'WEBRTC / LIVEKIT') + '</span><b>' + (state.voiceCallStatus === 'connected' ? 'CONNECTED' : state.voiceCallStatus.toUpperCase()) + '</b>' + sessionReadout + '</div><div class="caller-orb ' + state.voiceCallStatus + ' ' + state.voiceStatus + '"' + (isDemo() ? ' aria-hidden="true">' : '>' + scenario.title.slice(0, 1)) + '</div><div class="call-wave ' + state.voiceStatus + '" data-audio-state="' + state.voiceStatus + '" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>' + liveCaption + '<strong role="status" aria-live="polite">' + callHeadline + '</strong><div class="call-actions" role="group" aria-label="通话控制"><button class="call-action caption-toggle" type="button" data-voice-captions aria-pressed="' + state.voiceSubtitleVisible + '" aria-label="' + (state.voiceSubtitleVisible ? '隐藏字幕' : '显示字幕') + '">' + (state.voiceSubtitleVisible ? '字幕开' : '字幕关') + '</button>' + callButton + muteButton + endButton + '</div><small>' + micStatus + ' · ASR: ' + esc(asrModel) + ' · ' + state.voiceApiState + '</small>' + transcriptPanel + '</section>' + '<aside class="voice-observe-panel">' + (isDemo() ? '' : tracePanel + conversationArchive) + '<div class="panel-title"><span>' + (isDemo() ? '实时指标' : 'REAL-TIME METRICS') + '</span><b>' + state.voiceCallStatus.toUpperCase() + ' · ' + (state.runtimeMode === 'sandbox' ? 'SANDBOX' : state.runtimeMode === 'live' ? 'LIVE' : '待接通') + '</b></div><div class="current-model-card"><span>' + modelLabel + '</span><div class="model-pair"><div><small>' + (isDemo() ? '对话模型' : 'FAST / VOICE') + '</small><b>' + fastDisplay + '</b></div><div><small>' + (isDemo() ? '核验模型' : 'SLOW / VALIDATE') + '</small><b>' + slowDisplay + '</b></div></div><small>路径：' + esc(state.voiceQualityPath) + ' · TTS: ' + esc(ttsModel) + ' · LLM source: ' + esc(isDemo() ? activeModels?.modelSource || '待连接' : state.voiceModelSource) + '</small></div>' + (isDemo() ? '' : '<div class="insight-grid">' + insightCards + '</div>') + '<div class="metric-grid realtime"><div><span>ASR</span>' + metric(state.voiceLatency.asr, 'ms') + '</div><div><span>FAST LLM</span>' + metric(state.voiceLatency.intent, 'ms') + '</div><div><span>SLOW LLM</span>' + metric(state.voiceLatency.slow, 'ms') + '</div><div><span>KB</span>' + metric(state.voiceLatency.kb, 'ms') + '</div><div><span>TTS TTFB</span>' + metric(state.voiceLatency.tts, 'ms') + '</div><div><span>E2E</span>' + metric(state.voiceLatency.e2e ?? (isDemo() || state.voiceLatency.tts === null || state.voiceLatency.asr === null || state.voiceLatency.intent === null ? null : state.voiceLatency.asr + state.voiceLatency.intent + state.voiceLatency.tts), 'ms') + '</div></div><div class="rtc-status-grid"><div><span>RTT</span><b>' + (state.voiceMetrics?.rtt ?? '—') + '</b></div><div><span>JITTER</span><b>' + (state.voiceMetrics?.jitter ?? '—') + '</b></div><div><span>PACKET LOSS</span><b>' + (state.voiceMetrics?.packetLoss ?? '—') + '</b></div><div><span>INTERRUPT</span><b>' + (state.voiceMetrics?.interrupt ?? '—') + '</b></div></div><details class="observe-detail" open><summary>' + (isDemo() ? '知识库 <span>演示规则</span>' : 'KNOWLEDGE BASE <span>top hits</span>') + '</summary><ul class="knowledge-list">' + knowledge + '</ul></details><details class="observe-detail"><summary>EVENT TRACE <span>' + state.voiceLogs.length + ' events</span></summary><ul class="voice-log">' + logs + '</ul></details>' + (isDemo() ? '' : '<details class="observe-detail"><summary>文本备用入口</summary><div class="voice-samples">' + scenario.examples.map((item) => '<button type="button" data-voice-sample="' + esc(item) + '">' + item + '</button>').join('') + '</div><div class="voice-composer"><textarea id="voice-input" rows="2" placeholder="' + esc(scenario.prompt) + '">' + esc(state.voiceInput) + '</textarea><div class="voice-actions"><button class="button primary" type="button" data-voice-send>发送并运行 <span>↗</span></button></div></div></details>') + '<div class="obs-boundary"><span>' + (state.runtimeMode === 'sandbox' ? 'SANDBOX / SIMULATED' : state.runtimeMode === 'ready' ? '运行观测' : 'LIVE / SERVER TELEMETRY') + '</span><p>' + (state.runtimeMode === 'sandbox' ? '当前为可重复的 Sandbox 演示，事件会明确标注 simulated。' : state.runtimeMode === 'ready' ? '接通后显示实际测量值。' : '当前会话由 LiveKit、Agent 和 ElevenLabs 事件实时填充指标。') + '</p></div>' + (isDemo() ? tracePanel + conversationArchive : '') + '</aside></div></section>' + detailPages);
+  const detailsLink = '<div class="voice-case-links"><a class="detail-link" href="#/projects/' + scenario.id + '">案例拆解</a>' +
+    '<a class="detail-link detail-link-primary" href="#voice-details">展开技术详情</a></div>';
+  const modelDetail = '<details class="observe-detail" data-detail-key="models"><summary>' + modelLabel +
+    '</summary><div class="current-model-card"><span>' + modelLabel + '</span><div class="model-pair"><div><small>' + (isDemo() ? '对话模型' : 'FAST / VOICE') + '</small><b>' + fastDisplay + '</b></div><div><small>' + (isDemo() ? '核验模型' : 'SLOW / VALIDATE') + '</small><b>' + slowDisplay + '</b></div></div><small>路径：' + esc(state.voiceQualityPath) + ' · TTS: ' + esc(ttsModel) + ' · LLM source: ' + esc(isDemo() ? activeModels?.modelSource || '待连接' : state.voiceModelSource) + '</small></div></details>';
+  const metricDetail = '<details class="observe-detail" data-detail-key="metrics"><summary>实时指标</summary><div class="metric-grid realtime"><div><span>语音识别（ASR）</span>' + metric(state.voiceLatency.asr, 'ms') + '</div><div><span>快模型</span>' + metric(state.voiceLatency.intent, 'ms') + '</div><div><span>核验模型</span>' + metric(state.voiceLatency.slow, 'ms') + '</div><div><span>知识库</span>' + metric(state.voiceLatency.kb, 'ms') + '</div><div><span>合成首包（TTS）</span>' + metric(state.voiceLatency.tts, 'ms') + '</div><div><span>服务端首段时延</span>' + metric(state.voiceLatency.e2e ?? (isDemo() || state.voiceLatency.tts === null || state.voiceLatency.asr === null || state.voiceLatency.intent === null ? null : state.voiceLatency.asr + state.voiceLatency.intent + state.voiceLatency.tts), 'ms') + '</div></div><div class="rtc-status-grid"><div><span>网络往返（RTT）</span><b>' + (state.voiceMetrics?.rtt ?? '—') + '</b></div><div><span>抖动</span><b>' + (state.voiceMetrics?.jitter ?? '—') + '</b></div><div><span>丢包</span><b>' + (state.voiceMetrics?.packetLoss ?? '—') + '</b></div><div><span>打断</span><b>' + (state.voiceMetrics?.interrupt ?? '—') + '</b></div></div></details>';
+  const sandboxControl = state.runtimeMode === 'sandbox' && state.voiceCallStatus !== 'ended' ?
+    '<details class="sandbox-entry" data-detail-key="sandbox"><summary>模拟文字对话</summary><p>模拟内容及耗时用于演示。</p>' +
+    '<label>咨询内容<textarea id="voice-input" rows="2" placeholder="' + esc(scenario.prompt) + '">' + esc(state.voiceInput) +
+    '</textarea></label><button class="call-action" type="button" data-voice-send>发送模拟问题</button></details>' :
+    state.voiceCallStatus === 'error' ? '<button class="call-action" type="button" data-voice-sandbox>使用模拟对话</button>' : '';
+  const runtimeLabel = state.runtimeMode === 'live' ? '实时通话' : state.runtimeMode === 'sandbox' ? '模拟演示' : '待接通';
+  const observation = '<aside class="voice-observe-panel"><div class="panel-title"><span>会话观测</span><b>' +
+    runtimeLabel + '</b></div>' + modelDetail + metricDetail +
+    '<details class="observe-detail" data-detail-key="knowledge"><summary>知识库 <span>演示规则</span></summary><ul class="knowledge-list">' + knowledge +
+    '</ul></details><details class="observe-detail" data-detail-key="events"><summary>事件摘要 <span>' + state.voiceLogs.length + ' 条</span></summary>' +
+    '<ul class="voice-log">' + logs + '</ul></details>' + tracePanel + conversationArchive +
+    (isDemo() ? '' : '<div class="insight-grid">' + insightCards + '</div>') +
+    '<div class="obs-boundary"><span>' + (state.runtimeMode === 'sandbox' ? '模拟演示 · SANDBOX / SIMULATED' : runtimeLabel) +
+    '</span><p>' + (state.runtimeMode === 'sandbox' ? '当前数据用于演示。' : state.runtimeMode === 'ready' ?
+      '接通后可展开查看实测参数。' : '指标来自本次会话。知识库使用演示规则。') + '</p></div></aside>';
+  return shell('<section class="voice-screen section-pad" ' + (isDemo() ? 'data-mobile-panel="' + selectedMobilePanel + '" ' : '') + 'data-direction="' + scenario.direction + '"><div class="voice-screen-head"><div><span class="section-label">' + (isDemo() ? (scenario.direction === "outbound" ? "外呼" : "呼入") : "INTERACTIVE AI VOICE DEMO / " + scenario.direction.toUpperCase()) + '</span><h1>' + scenario.title + '</h1><p>' + scenario.subtitle + '</p></div><div class="voice-top-actions"><span class="runtime-chip ' + state.runtimeMode + '">' + (isDemo() && state.runtimeMode === 'ready' ? '待接通' : state.runtimeMode.toUpperCase()) + (state.runtimeMode === 'sandbox' ? ' / SIMULATED' : '') + '</span><div class="scenario-tabs" role="tablist" aria-label="语音场景">' + voiceScenarios.map((item) => '<a role="tab" aria-selected="' + (item.id === scenario.id) + '" class="' + (item.id === scenario.id ? 'selected' : '') + '" href="#/apps/voice?scenario=' + item.id + '">' + item.title + '</a>').join('') + '</div></div></div>' + (isDemo() ? mobileNav : '') + '<div class="voice-console"><aside class="voice-context-panel"><div class="panel-title"><span>' + (isDemo() ? '场景' : 'SCENARIO') + '</span><b>' + scenario.direction.toUpperCase() + '</b></div><div class="context-intro"><span class="scenario-icon">' + scenario.title.slice(0, 1) + '</span><div><h2>' + scenario.title + '</h2><p>默认音色：' + esc(scenario.defaultVoice || 'server preset') + '</p></div></div>' + (isDemo() ? settingsButton : '') + '<details class="observe-detail context-detail" data-detail-key="context"><summary>连接与配置</summary><div class="context-meta"><span>会话编号</span><b>' + esc(sessionLabel) + '</b><span>传输</span><b>' + (state.runtimeMode === 'sandbox' ? '本地模拟' : 'LiveKit WebRTC') + '</b><span>合成模型（TTS）</span><b>' + esc(ttsModel) + '</b><span>快模型</span><b>' + esc(fastModel) + '</b><span>核验模型</span><b>' + esc(slowModel) + '</b><span>语音识别（ASR）</span><b>' + esc(asrModel) + '</b><span>音色</span><b>' + esc(displayVoice === 'default' ? isDemo() ? '场景默认' : 'server default' : displayVoice) + '</b></div></details><div class="panel-title workflow-title"><span>' + (isDemo() ? '业务流程' : 'WORKFLOW') + '</span><b>' + state.voiceStep + '/' + scenario.workflow.length + '</b></div><div class="voice-workflow compact">' + steps + '</div>' + (isDemo() ? '' : oldSettings) + detailsLink + '</aside><section class="voice-stage"><div class="stage-top"><div>' + agentAvatar + '<span class="mini-label">通话</span><b>' + (scenario.direction === 'outbound' ? 'Agent 主动来电' : '用户主动拨号') + '</b></div><span class="voice-state ' + state.voiceStatus + '"><i></i>' + chipText + '</span></div><div class="call-session-strip"><span>' + (state.voiceCallStatus === 'idle' ? '待接通' : '实时传输（WebRTC）') + '</span><b>' + (state.voiceCallStatus === 'connected' ? '已接通' : (stages[state.voiceCallStatus] || state.voiceCallStatus)) + '</b>' + sessionReadout + '</div><div class="caller-orb ' + state.voiceCallStatus + ' ' + state.voiceStatus + '"' + (isDemo() ? ' aria-hidden="true">' : '>' + scenario.title.slice(0, 1)) + '</div><div class="call-wave ' + state.voiceStatus + '" data-audio-state="' + state.voiceStatus + '" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>' + liveCaption + '<strong role="status" aria-live="polite">' + callHeadline + '</strong><div class="call-actions" role="group" aria-label="通话控制"><button class="call-action caption-toggle" type="button" data-voice-captions aria-pressed="' + state.voiceSubtitleVisible + '" aria-label="' + (state.voiceSubtitleVisible ? '隐藏字幕' : '显示字幕') + '">' + (state.voiceSubtitleVisible ? '字幕开' : '字幕关') + '</button>' + callButton + muteButton + endButton + (state.runtimeMode !== 'sandbox' ? sandboxControl : '') + '</div><small>' + micStatus + ' · ASR: ' + esc(asrModel) + ' · ' + state.voiceApiState + '</small>' + (state.runtimeMode === 'sandbox' ? sandboxControl : '') + transcriptPanel + '</section>' + observation + '</div></section>' + detailPages);
 }
 
-function notFoundView() { return shell('<section class="page-intro section-pad"><span class="section-label">404 / PAGE NOT FOUND</span><h1>这条路径还没有产品。</h1><a class="button primary" href="#/">回到首页</a></section>'); }
+function notFoundView() { return shell('<section class="page-intro section-pad"><span class="section-label">页面未找到</span><h1>找不到这个页面</h1><a class="button primary" href="#/">回到首页</a></section>'); }
 
 function voiceLog(label, tone) {
   state.voiceLogs.push({ time: new Date().toLocaleTimeString('zh-CN', { hour12: false }), label, tone: tone || 'cyan' });
@@ -581,7 +705,7 @@ function applyRuntimeEvent(event, source = 'runtime') {
     }
     if (event.type === 'speech_started') {
       state.voiceLatency = { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null };
-      state.voiceQualityPath = 'fast voice → slow validation';
+      state.voiceQualityPath = '对话生成 → 并行核验';
     }
     if (event.type === 'final_transcript') state.voiceStep = Math.max(state.voiceStep, 2);
     if (event.type === 'knowledge_hit') {
@@ -622,9 +746,9 @@ function applyRuntimeEvent(event, source = 'runtime') {
   if (event.type === 'speech_started' || event.type === 'partial_transcript') state.voiceStatus = 'listening';
   if (event.type === 'thinking' || event.type === 'tool_call') state.voiceStatus = 'thinking';
   if (event.type === 'deep_started') state.voiceSlowStatus = 'running';
-  if (event.type === 'deep_result') { state.voiceSlowStatus = 'ready'; if (!isDemo()) state.voiceSlowModel = event.model || state.voiceSlowModel; if (state.voiceQualityPath !== '知识库直答') state.voiceQualityPath = event.trigger === 'partial' ? 'speculative lookup → validated' : 'fast voice → slow validation'; }
-  if (event.type === 'deep_result_used') { state.voiceSlowStatus = 'used'; state.voiceQualityPath = 'fast voice + slow result'; }
-  if (event.type === 'deep_error') { state.voiceSlowStatus = 'fallback'; if (state.voiceQualityPath !== '知识库直答') state.voiceQualityPath = 'fast voice → demo KB fallback'; }
+  if (event.type === 'deep_result') { state.voiceSlowStatus = 'ready'; if (!isDemo()) state.voiceSlowModel = event.model || state.voiceSlowModel; if (state.voiceQualityPath !== '知识库直答') state.voiceQualityPath = event.trigger === 'partial' ? '提前检索 → 已核验' : '对话生成 → 并行核验'; }
+  if (event.type === 'deep_result_used') { state.voiceSlowStatus = 'used'; state.voiceQualityPath = '对话生成 → 使用核验结果'; }
+  if (event.type === 'deep_error') { state.voiceSlowStatus = 'fallback'; if (state.voiceQualityPath !== '知识库直答') state.voiceQualityPath = '切换演示规则'; }
   if (['speaking', 'tts_started'].includes(event.type)) state.voiceStatus = 'speaking';
   if (['barge_in', 'interrupted'].includes(event.type)) state.voiceStatus = 'interrupted';
   if (event.type === 'reconnecting') { state.voiceStatus = 'reconnecting'; state.voiceCallStatus = 'connecting'; }
@@ -912,6 +1036,8 @@ function processVoiceInput(text) {
   state.voiceStatus = 'thinking';
   state.voiceStep = Math.max(1, state.voiceStep);
   state.voiceRound += 1;
+  const attempt = callAttempt;
+  const wasDemo = isDemo();
   state.voiceLatency.asr = state.runtimeMode === 'live' ? null : 240 + Math.min(180, value.length * 4);
   state.voiceLatency.intent = state.runtimeMode === 'live' ? null : 28 + (value.length % 19);
   state.voiceLatency.kb = state.runtimeMode === 'live' ? null : 20 + (scenario.id === 'airline' ? 12 : 6);
@@ -920,16 +1046,17 @@ function processVoiceInput(text) {
     : { emotion: value.includes('断线') || value.includes('投诉') ? '焦虑 / frustrated' : '平静 / neutral', age: '30–39（模拟）', gender: '未判断（模拟）', confidence: 72 };
   voiceLog('user utterance received', 'cyan');
   voiceLog('intent classified: ' + scenario.id, 'cyan');
-  render();
+  render(true);
   window.setTimeout(() => {
+    if (wasDemo && attempt !== callAttempt) return;
     state.voiceStep = Math.min(scenario.workflow.length, 4);
     addConversationMessage('assistant', scenario.reply, 'demo-reply', { model: state.voiceModel });
     state.voicePartial = '';
     state.voiceStatus = 'connected';
     voiceLog('knowledge base top hit returned', 'lime');
     voiceLog('response committed / handoff boundary checked', 'lime');
-    render();
-    if (voiceRuntimeUrl()) elevenLabsSpeak(scenario.reply);
+    render(true);
+    if (voiceRuntimeUrl() && (!isDemo() || state.runtimeMode === 'live')) elevenLabsSpeak(scenario.reply);
     else { state.voiceApiState = 'sandbox / browser preview'; browserSpeak(scenario.reply); }
   }, 420);
 }
@@ -1053,7 +1180,14 @@ function bindVoiceEvents() {
       render(true);
     });
   });
-  document.querySelectorAll('.detail-link-primary').forEach((link) => link.addEventListener('click', (event) => { event.preventDefault(); document.querySelector('#voice-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+  document.querySelectorAll('.detail-link-primary').forEach((link) => link.addEventListener('click', (event) => {
+    event.preventDefault();
+    const details = document.querySelector('#voice-details');
+    if (details) {
+      details.open = true;
+      details.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }));
   const actionBar = document.querySelector('.call-actions');
   if (actionBar && !isDemo() && !voiceRuntimeUrl() && !actionBar.querySelector('[data-voice-mic]')) {
     const micButton = document.createElement('button');
@@ -1070,6 +1204,18 @@ function bindVoiceEvents() {
   }));
   const input = document.querySelector('#voice-input');
   if (input) input.addEventListener('input', (event) => { state.voiceInput = event.target.value; });
+  document.querySelector('[data-voice-sandbox]')?.addEventListener('click', () => {
+    callAttempt += 1;
+    resetDemoCall();
+    state.runtimeMode = 'sandbox';
+    state.voiceApiState = 'sandbox / simulated';
+    state.voiceStatus = 'connected';
+    state.voiceCallStatus = 'connected';
+    voiceLog('模拟模式已启动', 'quiet');
+    render(true);
+    const entry = document.querySelector('.sandbox-entry');
+    if (entry) entry.open = true;
+  });
   const send = document.querySelector('[data-voice-send]');
   if (send) send.addEventListener('click', () => processVoiceInput(state.voiceInput));
   const connect = async () => {
@@ -1184,7 +1330,11 @@ function bindVoiceEvents() {
   if (mic) mic.addEventListener('click', () => voiceRuntimeUrl() && state.voiceRoom ? ensureLiveMicrophone() : startBrowserRecognition({ fallback: state.voiceAsrFallback }));
   const end = document.querySelector('[data-voice-end]');
   if (end) end.addEventListener('click', async () => {
-    if (isDemo()) { await finishVoiceCall('user'); return; }
+    if (isDemo()) {
+      if (state.runtimeMode === 'sandbox') window.speechSynthesis?.cancel();
+      await finishVoiceCall('user');
+      return;
+    }
     if (state.voiceStatsTimer) { window.clearInterval(state.voiceStatsTimer); state.voiceStatsTimer = null; }
     if (state.voiceLocalTrack) { state.voiceLocalTrack.stop(); state.voiceLocalTrack = null; }
     if (state.voiceRoom) { state.voiceRoom.disconnect(); state.voiceRoom = null; }
@@ -1255,7 +1405,6 @@ function bindAppCards() {
       else window.open(route, '_blank', 'noopener,noreferrer');
     };
     card.addEventListener('click', (event) => { if (!event.target.closest('a,button')) open(); });
-    card.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
   });
 }
 function render(preserveScroll = false) {
@@ -1265,9 +1414,11 @@ function render(preserveScroll = false) {
   const hash = hashParts[0];
   const query = new URLSearchParams(hashParts[1] || '');
   const segments = hash.split('/').filter(Boolean);
+  activePage = segments[0] === 'apps' ? 'projects' : segments[0] || '';
   const nextDemo = segments[0] === 'apps' && segments[1] === 'voice';
   const scenario = voiceScenarios.find((item) => item.id === query.get('scenario'))?.id || 'carrier';
   if (nextDemo !== demoRoute || (nextDemo && scenario !== state.voiceScenario)) {
+    if (demoRoute && state.runtimeMode === 'sandbox') window.speechSynthesis?.cancel();
     settingsPanel.close();
     callAttempt += 1;
     if (state.voiceSession && state.voiceCallStatus !== 'ended') void finishVoiceCall('navigation', false);
@@ -1281,18 +1432,23 @@ function render(preserveScroll = false) {
   const previousFocused = isDemo() && preserveScroll && app.contains(document.activeElement)
     ? [...document.activeElement.attributes].find((attr) => attr.name.startsWith('data-voice-') || attr.name === 'data-open-voice-settings')
     : null;
-  const detailsOpen = isDemo() && preserveScroll
-    ? [...app.querySelectorAll('.voice-observe-panel details')].map((detail) => detail.open) : [];
+  const detailSelector = 'details[data-detail-key]';
+  const detailStates = isDemo() && preserveScroll
+    ? new Map([...app.querySelectorAll(detailSelector)].map((detail) => [detail.dataset.detailKey, detail.open])) : new Map();
   const panels = ['.voice-context-panel', '.voice-observe-panel', '.voice-transcript', '.conversation-thread'];
   const scrolls = isDemo() && preserveScroll ? panels.map((selector) => app.querySelector(selector)?.scrollTop || 0) : [];
   if (!segments.length) app.innerHTML = homeView();
   else if (segments[0] === 'apps' && segments[1] === 'voice') app.innerHTML = voiceScenarioView(scenario);
   else if (segments[0] === 'apps') app.innerHTML = appsView();
-  else if (segments[0] === 'projects' || segments[0] === 'method') app.innerHTML = notFoundView();
+  else if (segments[0] === 'about' && segments.length === 1) app.innerHTML = aboutView();
+  else if (segments[0] === 'projects' && segments.length <= 2) app.innerHTML = projectsView(segments[1]);
+  else if (segments[0] === 'method' && segments.length === 1) app.innerHTML = methodView();
+  else if (segments[0] === 'contact' && segments.length === 1) app.innerHTML = contactView();
   else app.innerHTML = notFoundView();
   if (isDemo() && preserveScroll) {
-    app.querySelectorAll('.voice-observe-panel details').forEach((detail, index) => {
-      if (detailsOpen[index] !== undefined) detail.open = detailsOpen[index];
+    app.querySelectorAll(detailSelector).forEach((detail) => {
+      const open = detailStates.get(detail.dataset.detailKey);
+      if (open !== undefined) detail.open = open;
     });
     panels.forEach((selector, index) => {
       const panel = app.querySelector(selector);
@@ -1300,7 +1456,7 @@ function render(preserveScroll = false) {
     });
     if (previousFocused) app.querySelector('[' + previousFocused.name + '="' + CSS.escape(previousFocused.value) + '"]')?.focus({ preventScroll: true });
   }
-  bindVoiceEvents();
+  if (isDemo()) bindVoiceEvents();
   bindAppCards();
   window.scrollTo({ top: preserveScroll ? previousScrollY : 0, behavior: 'instant' });
 }
