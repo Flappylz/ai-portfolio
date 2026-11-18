@@ -823,10 +823,10 @@ body.voice-demo-route {
   .voice-demo-route .scenario-tabs a { flex: 1 0 auto; font-size: 11px; padding-inline: 7px; }
   .voice-demo-route .voice-stage { min-height: auto; padding: 12px; }
   .voice-demo-route .voice-stage .caller-orb {
-    width: 110px;
-    height: 110px;
-    flex-basis: 110px;
-    margin: 26px auto 0;
+    width: 100px;
+    height: 100px;
+    flex-basis: 100px;
+    margin: 16px auto 0;
   }
   .voice-demo-route .voice-captions-area .live-subtitle { grid-template-columns: 72px minmax(0, 1fr); }
   .voice-demo-route .live-subtitle p { font-size: 16px; }
