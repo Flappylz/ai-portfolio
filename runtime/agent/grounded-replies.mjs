@@ -96,3 +96,11 @@ export function groundedReply({ scenario, language, turns }) {
   const hits = rules.filter((rule) => rule.matches.test(text));
   return hits.length === 1 ? { id: hits[0].id, text: hits[0].reply } : null;
 }
+
+export function initialReplyText(scenario, language) {
+  if (!/^zh(?:-|$)/i.test(language)) return null;
+  if (scenario === 'carrier') return carrierRules[0].reply;
+  if (scenario === 'airline') return airlineRules[0].reply;
+  if (scenario === 'football') return questions[0];
+  return null;
+}

@@ -56,6 +56,13 @@ export class ReplyAudioCache {
     return entry?.frames.length ? entry : null;
   }
 
+  hasBufferedPrefix(text) {
+    for (const [key, entry] of this.entries) {
+      if (entry.frames.length && key.startsWith(text)) return true;
+    }
+    return false;
+  }
+
   read(entry) {
     let index = 0;
     let wake;

@@ -11,7 +11,7 @@ import {
 import * as elevenlabs from '@livekit/agents-plugin-elevenlabs';
 import * as openai from '@livekit/agents-plugin-openai';
 import * as silero from '@livekit/agents-plugin-silero';
-import { groundedReply, isChineseLeadIn } from './grounded-replies.mjs';
+import { groundedReply, initialReplyText, isChineseLeadIn } from './grounded-replies.mjs';
 import { ReplyAudioCache } from './reply-audio-cache.mjs';
 
 const SCENARIOS = {
@@ -285,9 +285,20 @@ class StreamingTranscriptAgent extends voice.Agent {
     const parts = text[Symbol.asyncIterator]();
     const first = await parts.next();
     if (first.done) return null;
-    const prebuffered = this.replyAudio.get(first.value);
-    const second = prebuffered ? await parts.next() : null;
-    if (prebuffered && second.done) {
+    const chunks = [first.value];
+    let exact = first.value;
+    let exhausted = false;
+    while (this.replyAudio.hasBufferedPrefix(exact)) {
+      const next = await parts.next();
+      if (next.done) {
+        exhausted = true;
+        break;
+      }
+      chunks.push(next.value);
+      exact += next.value;
+    }
+    const prebuffered = exhausted ? this.replyAudio.get(exact) : null;
+    if (prebuffered) {
       void this.publishVoiceEvent('tts_first_byte', {
         ttfbMs: prebuffered.ttfbMs,
         provider: 'elevenlabs',
@@ -297,12 +308,12 @@ class StreamingTranscriptAgent extends voice.Agent {
       return this.replyAudio.read(prebuffered);
     }
 
-    // Pass the original chunks through unchanged when the exact same vetted
-    // phrase isn't available. Custom voices and open-ended text still stream.
+    // Pass through text without changing the model or selected voice when a
+    // complete, exact match to a pre-synthesized answer isn't available.
     const remainder = new ReadableStream({
       start(controller) {
-        controller.enqueue(first.value);
-        if (second) controller.enqueue(second.value);
+        for (const chunk of chunks) controller.enqueue(chunk);
+        if (exhausted) controller.close();
       },
       async pull(controller) {
         const next = await parts.next();
@@ -761,6 +772,7 @@ export default defineAgent({
 
     await session.start({ agent, room: ctx.room, record: { audio: false, traces: true, logs: true, transcript: true, redaction: true } });
     await ctx.connect();
+    agent.replyAudio?.warm(initialReplyText(meta.scenario, language));
     await publish('agent_joined', {
       agentModel: reportedFastModel,
       fastModel: reportedFastModel,
