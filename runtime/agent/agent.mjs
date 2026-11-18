@@ -294,12 +294,7 @@ class StreamingTranscriptAgent extends voice.Agent {
         model: this.replyAudio.tts.model,
         prebuffered: true,
       });
-      return new ReadableStream({
-        start(controller) {
-          for (const frame of prebuffered.frames) controller.enqueue(frame);
-          controller.close();
-        },
-      });
+      return this.replyAudio.read(prebuffered);
     }
 
     // Pass the original chunks through unchanged when the exact same vetted

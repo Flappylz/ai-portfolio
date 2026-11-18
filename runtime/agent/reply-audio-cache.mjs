@@ -22,7 +22,7 @@ export class ReplyAudioCache {
 
     const stream = this.tts.stream();
     const started = performance.now();
-    const entry = { stream, frames: [], ttfbMs: null, ready: false };
+    const entry = { stream, frames: [], ttfbMs: null, complete: false, waiters: new Set() };
     this.entries.set(text, entry);
     stream.updateInputStream(new ReadableStream({
       start(controller) {
@@ -37,11 +37,15 @@ export class ReplyAudioCache {
           if (!chunk?.frame) continue;
           entry.ttfbMs ??= Math.round(performance.now() - started);
           entry.frames.push(chunk.frame);
+          for (const wake of entry.waiters) wake();
+          entry.waiters.clear();
         }
-        entry.ready = entry.frames.length > 0;
       } catch {
         if (this.entries.get(text) === entry) this.entries.delete(text);
       } finally {
+        entry.complete = true;
+        for (const wake of entry.waiters) wake();
+        entry.waiters.clear();
         stream.close();
       }
     })();
@@ -49,7 +53,31 @@ export class ReplyAudioCache {
 
   get(text) {
     const entry = this.entries.get(text);
-    return entry?.ready ? entry : null;
+    return entry?.frames.length ? entry : null;
+  }
+
+  read(entry) {
+    let index = 0;
+    let wake;
+    let cancelled = false;
+    return new ReadableStream({
+      async pull(controller) {
+        if (index === entry.frames.length && !entry.complete) {
+          await new Promise((resolve) => {
+            wake = resolve;
+            entry.waiters.add(resolve);
+          });
+        }
+        if (cancelled) return;
+        if (index < entry.frames.length) controller.enqueue(entry.frames[index++]);
+        else controller.close();
+      },
+      cancel() {
+        cancelled = true;
+        entry.waiters.delete(wake);
+        wake?.();
+      },
+    });
   }
 
   close() {
