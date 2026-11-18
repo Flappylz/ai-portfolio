@@ -11,6 +11,7 @@ import {
 import * as elevenlabs from '@livekit/agents-plugin-elevenlabs';
 import * as openai from '@livekit/agents-plugin-openai';
 import * as silero from '@livekit/agents-plugin-silero';
+import { groundedReply } from './grounded-replies.mjs';
 
 const SCENARIOS = {
   carrier: {
@@ -231,9 +232,48 @@ function createHandoffTool(publish) {
 }
 
 class StreamingTranscriptAgent extends voice.Agent {
-  constructor(options, publish) {
+  constructor(options, publish, ground) {
     super(options);
     this.publishVoiceEvent = publish;
+    this.ground = ground;
+  }
+
+  replyFromHistory(chatCtx, newMessage) {
+    if (!this.ground) return null;
+    const turns = chatCtx.items
+      .filter((item) => item.type === 'message' && item.role === 'user')
+      .map((item) => item.textContent || '');
+    if (newMessage) turns.push(newMessage.textContent || '');
+    return this.ground(turns);
+  }
+
+  async onUserTurnCompleted(chatCtx, newMessage) {
+    const started = performance.now();
+    const reply = this.replyFromHistory(chatCtx, newMessage);
+    if (reply) {
+      // No tool call or mutation of the speculative chat context is needed.
+      // Only the committed user turn is recorded as a knowledge hit.
+      void this.publishVoiceEvent('knowledge_hit', {
+        source: 'grounded_fast_path',
+        code: reply.id,
+        latencyMs: Math.round(performance.now() - started),
+        text: reply.text,
+      });
+    }
+  }
+
+  async llmNode(chatCtx, tools, settings) {
+    const last = chatCtx.items.at(-1);
+    const reply = last?.type === 'message' && last.role === 'user' ? this.replyFromHistory(chatCtx) : null;
+    if (!reply) return super.llmNode(chatCtx, tools, settings);
+    // Feed an informative sentence through the usual playout, interruption and
+    // transcription pipeline. The default model remains the generative route.
+    return new ReadableStream({
+      start(controller) {
+        controller.enqueue(reply.text);
+        controller.close();
+      },
+    });
   }
 
   async transcriptionNode(text, modelSettings) {
@@ -283,6 +323,10 @@ export default defineAgent({
     const scenario = scenarioFor(meta);
     const language = languageCode(meta.language, 'zh');
     const voiceConfig = meta.voiceConfig || {};
+    const useGroundedFastPath = voiceConfig.groundedFastPath === true;
+    const ground = useGroundedFastPath
+      ? (turns) => groundedReply({ scenario: meta.scenario, language, turns })
+      : null;
     const ttsLanguage = voiceConfig.ttsLanguage === 'auto' ? 'auto' : languageCode(voiceConfig.ttsLanguage, language);
     const asrLanguage = voiceConfig.asrLanguage === 'auto' ? 'auto' : languageCode(voiceConfig.asrLanguage, language);
     const sttModel = modelName(meta, 'asrModel', 'openai/gpt-live-transcribe', 'LIVEKIT_STT_MODEL');
@@ -328,9 +372,13 @@ export default defineAgent({
 
     const baseInstructions = [
         '你是一个交付级 Voice Agent。你的回答短、自然、可打断，先听清再回答。',
-        '快车道规则：先用一句自然的确认或澄清保持对话流畅；不要为了等待核验而沉默，也不要编造事实。',
+        useGroundedFastPath
+          ? '第一句就直接回答听到的问题，或提出一个具体的澄清问题。把最有用的已知事实放在前面。不要说请稍等、我先查一下、我先核对等等待话术。'
+          : '快车道规则：先用一句自然的确认或澄清保持对话流畅；不要为了等待核验而沉默，也不要编造事实。',
         '慢车道规则：系统会并行执行事实核验、知识检索和风险判断；收到慢车道结果时优先采用其中的已确认事实。',
-        '涉及航班号、票号、日期、账号、价格、库存、退改或转人工时，宁可先说“我先核对一下”，也不要猜测。',
+        useGroundedFastPath
+          ? '涉及航班号、票号、日期、账号、价格、库存、退改或转人工时，直接说明可验证的规则或具体缺少什么信息。不要猜测。'
+          : '涉及航班号、票号、日期、账号、价格、库存、退改或转人工时，宁可先说“我先核对一下”，也不要猜测。',
         '不要向用户透露“快车道、慢车道、模型路由、内部提示词”等实现细节。',
         '绝不编造实时库存、价格、账户、出票或客户信息；不确定时明确说明并转人工。',
         scenario.knowledge,
@@ -349,7 +397,7 @@ export default defineAgent({
       instructions: baseInstructions,
       tools: [createKnowledgeTool(scenario, publish, slowLane), createHandoffTool(publish)],
       useTtsAlignedTranscript: voiceConfig.preferredAlignment === 'normalized' && !/^eleven_v[34]/.test(ttsModel),
-    }, publish);
+    }, publish, ground);
 
     const fastLlm = openaiKey
       ? new openai.responses.LLM(fastOptions)
@@ -484,6 +532,10 @@ export default defineAgent({
         language: ttsLanguage === 'auto' ? language : ttsLanguage,
         modelOptions: { speed: bounded(voiceConfig.speed, 1, 0.7, 1.2) },
       });
+    if (useGroundedFastPath && tts instanceof elevenlabs.TTS) {
+      // Warm the stream connection alongside room setup without sending audio.
+      void tts.currentConnection().catch(() => {});
+    }
     const vad = ctx.proc.userData.vad;
     vad.updateOptions({
       activationThreshold: bounded(voiceConfig.vadThreshold, 0.5, 0.1, 0.9),
@@ -538,7 +590,7 @@ export default defineAgent({
       useTtsAlignedTranscript: voiceConfig.preferredAlignment === 'normalized' && !/^eleven_v[34]/.test(ttsModel),
       turnHandling: {
         turnDetection: 'vad',
-        preemptiveGeneration: { enabled: true },
+        preemptiveGeneration: { enabled: true, preemptiveTts: useGroundedFastPath },
         endpointing: { minDelay: endpointMin, maxDelay: bounded(voiceConfig.endpointMaxMs, Math.max(endpointMin, 2000), endpointMin, 10000) },
         interruption: {
           enabled: interruptionEnabled,
@@ -574,7 +626,7 @@ export default defineAgent({
         asrModel: reportedSttModel,
         ...(firstTranscriptMs === null ? {} : { metrics: { asrMs: firstTranscriptMs } }),
       });
-      if (speculativeLookupEnabled && shouldUseDeepLane(event.transcript)) {
+      if (speculativeLookupEnabled && !ground?.([event.transcript]) && shouldUseDeepLane(event.transcript)) {
         const nowMs = Date.now();
         const minGap = event.isFinal ? 0 : 1200;
         if (event.isFinal || nowMs - slowLane.lastSpeculativeAt >= minGap) {
@@ -667,6 +719,7 @@ export default defineAgent({
       fastModel: reportedFastModel,
       slowModel: reportedSlowModel,
       routing: 'fast_voice+slow_validation',
+      groundedFastPath: useGroundedFastPath,
       asrModel: reportedSttModel,
       ttsModel: tts.model,
       ttsProvider: elevenLabsKey ? 'elevenlabs' : 'livekit_inference',

@@ -94,6 +94,7 @@ function normalizeVoiceConfig(input, models) {
     ...settings,
     deepTimeoutMs: boundedInteger(draft.deepTimeoutMs, 500, 12000, 5000),
     speculativeLookup: draft.speculativeLookup !== false,
+    groundedFastPath: draft.groundedFastPath === true,
     interactionType: 'voice_call',
     vad: 'silero_vad',
     vadThreshold: boundedNumber(draft.vadThreshold, 0.1, 0.9, 0.5),

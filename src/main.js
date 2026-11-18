@@ -19,7 +19,7 @@ const demoPreferences = {
   language: 'zh', voiceId: 'default', fastModel: defaultDialogueModel, slowModel: defaultDialogueModel,
   asrModel: 'openai/gpt-live-transcribe', ttsModel: 'eleven_flash_v2_5',
   voiceConfig: {
-    ...newVoiceSettings, volume: 1, speed: 1, stability: .5, similarity: .75, style: 0,
+    ...newVoiceSettings, groundedFastPath: true, volume: 1, speed: 1, stability: .5, similarity: .75, style: 0,
     tone: 'neutral', emotion: 'neutral', noiseReduction: true,
     outputFormat: 'pcm_22050', chunkSchedule: '50,120,160,290'
   }
@@ -579,10 +579,15 @@ function applyRuntimeEvent(event, source = 'runtime') {
       };
       state.voiceStep = Math.max(state.voiceStep, 1);
     }
+    if (event.type === 'speech_started') {
+      state.voiceLatency = { asr: null, intent: null, kb: null, slow: null, tts: null, e2e: null, interrupt: null };
+      state.voiceQualityPath = 'fast voice → slow validation';
+    }
     if (event.type === 'final_transcript') state.voiceStep = Math.max(state.voiceStep, 2);
     if (event.type === 'knowledge_hit') {
       state.voiceStep = Math.max(state.voiceStep, 3);
       if (Number.isFinite(event.latencyMs)) state.voiceLatency.kb = event.latencyMs;
+      if (event.source === 'grounded_fast_path') state.voiceQualityPath = '知识库直答';
     }
     if (event.type === 'tts_text' && state.voiceConversation.some((item) => item.role === 'user')) {
       state.voiceStep = Math.max(state.voiceStep, 4);
@@ -617,9 +622,9 @@ function applyRuntimeEvent(event, source = 'runtime') {
   if (event.type === 'speech_started' || event.type === 'partial_transcript') state.voiceStatus = 'listening';
   if (event.type === 'thinking' || event.type === 'tool_call') state.voiceStatus = 'thinking';
   if (event.type === 'deep_started') state.voiceSlowStatus = 'running';
-  if (event.type === 'deep_result') { state.voiceSlowStatus = 'ready'; if (!isDemo()) state.voiceSlowModel = event.model || state.voiceSlowModel; state.voiceQualityPath = event.trigger === 'partial' ? 'speculative lookup → validated' : 'fast voice → slow validation'; }
+  if (event.type === 'deep_result') { state.voiceSlowStatus = 'ready'; if (!isDemo()) state.voiceSlowModel = event.model || state.voiceSlowModel; if (state.voiceQualityPath !== '知识库直答') state.voiceQualityPath = event.trigger === 'partial' ? 'speculative lookup → validated' : 'fast voice → slow validation'; }
   if (event.type === 'deep_result_used') { state.voiceSlowStatus = 'used'; state.voiceQualityPath = 'fast voice + slow result'; }
-  if (event.type === 'deep_error') { state.voiceSlowStatus = 'fallback'; state.voiceQualityPath = 'fast voice → demo KB fallback'; }
+  if (event.type === 'deep_error') { state.voiceSlowStatus = 'fallback'; if (state.voiceQualityPath !== '知识库直答') state.voiceQualityPath = 'fast voice → demo KB fallback'; }
   if (['speaking', 'tts_started'].includes(event.type)) state.voiceStatus = 'speaking';
   if (['barge_in', 'interrupted'].includes(event.type)) state.voiceStatus = 'interrupted';
   if (event.type === 'reconnecting') { state.voiceStatus = 'reconnecting'; state.voiceCallStatus = 'connecting'; }
