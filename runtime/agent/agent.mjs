@@ -12,6 +12,7 @@ import * as elevenlabs from '@livekit/agents-plugin-elevenlabs';
 import * as openai from '@livekit/agents-plugin-openai';
 import * as silero from '@livekit/agents-plugin-silero';
 import { groundedReply, isChineseLeadIn } from './grounded-replies.mjs';
+import { ReplyAudioCache } from './reply-audio-cache.mjs';
 
 const SCENARIOS = {
   carrier: {
@@ -279,6 +280,47 @@ class StreamingTranscriptAgent extends voice.Agent {
     });
   }
 
+  async ttsNode(text, modelSettings) {
+    if (!this.replyAudio) return super.ttsNode(text, modelSettings);
+    const parts = text[Symbol.asyncIterator]();
+    const first = await parts.next();
+    if (first.done) return null;
+    const prebuffered = this.replyAudio.get(first.value);
+    const second = prebuffered ? await parts.next() : null;
+    if (prebuffered && second.done) {
+      void this.publishVoiceEvent('tts_first_byte', {
+        ttfbMs: prebuffered.ttfbMs,
+        provider: 'elevenlabs',
+        model: this.replyAudio.tts.model,
+        prebuffered: true,
+      });
+      return new ReadableStream({
+        start(controller) {
+          for (const frame of prebuffered.frames) controller.enqueue(frame);
+          controller.close();
+        },
+      });
+    }
+
+    // Pass the original chunks through unchanged when the exact same vetted
+    // phrase isn't available. Custom voices and open-ended text still stream.
+    const remainder = new ReadableStream({
+      start(controller) {
+        controller.enqueue(first.value);
+        if (second) controller.enqueue(second.value);
+      },
+      async pull(controller) {
+        const next = await parts.next();
+        if (next.done) controller.close();
+        else controller.enqueue(next.value);
+      },
+      cancel(reason) {
+        return parts.return?.(reason).then(() => undefined);
+      },
+    });
+    return super.ttsNode(remainder, modelSettings);
+  }
+
   async transcriptionNode(text, modelSettings) {
     const stream = await super.transcriptionNode(text, modelSettings);
     if (!stream) return stream;
@@ -538,6 +580,7 @@ export default defineAgent({
     if (useGroundedFastPath && tts instanceof elevenlabs.TTS) {
       // Warm the stream connection alongside room setup without sending audio.
       void tts.currentConnection().catch(() => {});
+      if (voiceConfig.preferredAlignment !== 'normalized') agent.replyAudio = new ReplyAudioCache(tts);
     }
     const vad = ctx.proc.userData.vad;
     vad.updateOptions({
@@ -629,6 +672,10 @@ export default defineAgent({
         asrModel: reportedSttModel,
         ...(firstTranscriptMs === null ? {} : { metrics: { asrMs: firstTranscriptMs } }),
       });
+      if (!event.isFinal && agent.replyAudio && event.transcript.length >= 12) {
+        const draft = agent.replyFromHistory(agent.chatCtx, { textContent: event.transcript });
+        if (draft) agent.replyAudio.warm(draft.text);
+      }
       if (speculativeLookupEnabled && !ground?.([event.transcript]) && shouldUseDeepLane(event.transcript)) {
         const nowMs = Date.now();
         const minGap = event.isFinal ? 0 : 1200;
@@ -640,6 +687,7 @@ export default defineAgent({
     });
     session.on(voice.AgentSessionEventTypes.UserStateChanged, (event) => {
       if (event.newState === 'speaking') {
+        agent.replyAudio?.nextTurn();
         speechStartedAt = performance.now();
         speechStoppedAt = null;
         firstTranscript = false;
@@ -710,6 +758,7 @@ export default defineAgent({
       publish('error', { code });
     });
     session.on(voice.AgentSessionEventTypes.Close, (event) => {
+      agent.replyAudio?.close();
       clearTimeout(maxCallTimer);
       clearTimeout(idleTimer);
       publish('ended', { reason: event.reason || 'agent_closed' });
