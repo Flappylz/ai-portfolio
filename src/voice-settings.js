@@ -19,6 +19,11 @@ const localeName = (language) => {
 };
 
 export const newVoiceSettings = {
+  interactionType: 'voice_call',
+  vad: 'silero_vad',
+  bargeIn: 'server_vad',
+  noiseReduction: true,
+  groundedFastPath: true,
   fastReasoningEffort: 'low',
   slowReasoningEffort: 'low',
   fastMaxOutputTokens: 512,
@@ -87,18 +92,19 @@ export function createVoiceSettings({ endpoint, read, change, scenario }) {
   let previewStatus = '';
   let voiceStatus = '';
 
+  const labelText = (label, disabled) => String(label) + (disabled ? ' <small class="settings-support-note">当前模型不支持，已保留参数</small>' : '');
   const select = (label, key, value, options, disabled = false) =>
-    '<label>' + label + '<select data-settings-key="' + key + '"' + (disabled ? ' disabled' : '') + '>' +
+    '<label' + (disabled ? ' class="settings-unsupported"' : '') + '>' + labelText(label, disabled) + '<select data-settings-key="' + key + '"' + (disabled ? ' disabled' : '') + '>' +
     options.map(([id, name, unavailable]) => '<option value="' + escape(id) + '"' + (String(id) === String(value) ? ' selected' : '') + (unavailable ? ' disabled' : '') + '>' + escape(name) + '</option>').join('') +
     '</select></label>';
-  const number = (label, key, value, min, max, step = 1) =>
-    '<label>' + label + '<input type="number" data-settings-key="' + key + '" value="' + escape(value) + '" min="' + min + '" max="' + max + '" step="' + step + '"></label>';
-  const slider = (label, key, value, min, max, step) =>
-    '<label><span>' + label + ' <output data-settings-output="' + key + '">' + escape(value) + '</output></span><input type="range" data-settings-key="' + key + '" value="' + escape(value) + '" min="' + min + '" max="' + max + '" step="' + step + '"></label>';
-  const toggle = (label, key, value) =>
-    '<label class="toggle-field"><span>' + label + '</span><input type="checkbox" data-settings-key="' + key + '"' + (value ? ' checked' : '') + '></label>';
-  const input = (label, key, value, limit) =>
-    '<label>' + label + '<input data-settings-key="' + key + '" value="' + escape(value) + '" maxlength="' + limit + '"></label>';
+  const number = (label, key, value, min, max, step = 1, disabled = false) =>
+    '<label' + (disabled ? ' class="settings-unsupported"' : '') + '>' + labelText(label, disabled) + '<input type="number" data-settings-key="' + key + '" value="' + escape(value) + '" min="' + min + '" max="' + max + '" step="' + step + '"' + (disabled ? ' disabled' : '') + '></label>';
+  const slider = (label, key, value, min, max, step, disabled = false) =>
+    '<label' + (disabled ? ' class="settings-unsupported"' : '') + '><span>' + labelText(label, disabled) + ' <output data-settings-output="' + key + '">' + escape(value) + '</output></span><input type="range" data-settings-key="' + key + '" value="' + escape(value) + '" min="' + min + '" max="' + max + '" step="' + step + '"' + (disabled ? ' disabled' : '') + '></label>';
+  const toggle = (label, key, value, disabled = false) =>
+    '<label class="toggle-field' + (disabled ? ' settings-unsupported' : '') + '"><span>' + labelText(label, disabled) + '</span><input type="checkbox" data-settings-key="' + key + '"' + (value ? ' checked' : '') + (disabled ? ' disabled' : '') + '></label>';
+  const input = (label, key, value, limit, disabled = false) =>
+    '<label' + (disabled ? ' class="settings-unsupported"' : '') + '>' + labelText(label, disabled) + '<input data-settings-key="' + key + '" value="' + escape(value) + '" maxlength="' + limit + '"' + (disabled ? ' disabled' : '') + '></label>';
   const group = (id, title, hint, body) =>
     '<details class="settings-disclosure" data-settings-group="' + id + '"><summary><span>' + title + '</span><small>' + hint + '</small><b aria-hidden="true">⌄</b></summary><div class="settings-disclosure-body">' + body + '</div></details>';
 
@@ -121,7 +127,7 @@ export function createVoiceSettings({ endpoint, read, change, scenario }) {
     const scroll = previous?.scrollTop;
     const groups = new Set([...dialog.querySelectorAll('[data-settings-group][open]')].map((node) => node.dataset.settingsGroup));
     const activeKey = dialog.contains(document.activeElement) ? document.activeElement.dataset.settingsKey : null;
-    if (!previous) groups.add('basic');
+    if (!previous) ['basic', 'llm', 'asr', 'tts', 'call'].forEach((id) => groups.add(id));
     const current = read();
     const config = current.voiceConfig;
     const model = catalog.ttsModels.find((item) => item.id === current.ttsModel);
@@ -134,45 +140,46 @@ export function createVoiceSettings({ endpoint, read, change, scenario }) {
     const llmOptions = catalog.llmModels.map((item) => [item.id, item.name]);
     const lane = (name, key, modelId) => {
       const llm = catalog.llmModels.find((item) => item.id === modelId);
-      const efforts = (llm?.reasoningEfforts || []).map((effort) => [effort, effort]);
+      const efforts = (llm?.reasoningEfforts || ['low', 'medium', 'high', 'xhigh', 'max']).map((effort) => [effort, effort]);
+      const supportsTemperature = llm?.supportsTemperature === true;
       return group(key, name, modelId, select('模型', key + 'Model', modelId, llmOptions) +
-        (efforts.length ? select('推理强度', 'config.' + key + 'ReasoningEffort', config[key + 'ReasoningEffort'], efforts) : '') +
+        select('推理强度', 'config.' + key + 'ReasoningEffort', config[key + 'ReasoningEffort'] || 'low', efforts, !efforts.length) +
         number('输出 Token 上限', 'config.' + key + 'MaxOutputTokens', config[key + 'MaxOutputTokens'], 16, 4096) +
         toggle('复用 Responses WebSocket', 'config.' + key + 'UseWebSocket', config[key + 'UseWebSocket']) +
         toggle('并行工具调用', 'config.' + key + 'ParallelToolCalls', config[key + 'ParallelToolCalls']) +
         select('服务层级', 'config.' + key + 'ServiceTier', config[key + 'ServiceTier'],
-          [['default','标准'], ['auto','账户默认'], ['priority','Priority'], ['flex','Flex']]) +
-        (llm?.supportsTemperature ? slider('Temperature', 'config.' + key + 'Temperature', config[key + 'Temperature'], 0, 2, .05) : ''));
+          [['default', '标准'], ['auto', '账户默认'], ['priority', 'Priority'], ['flex', 'Flex']]) +
+        slider('Temperature', 'config.' + key + 'Temperature', config[key + 'Temperature'] ?? 1, 0, 2, .05, !supportsTemperature));
     };
     const ttsOptions = catalog.ttsModels.map((item) => [item.id, item.name + (item.live ? '' : ' · 仅试听'), !item.live]);
     const defaultFormats = ['pcm_22050'];
+    const supports = (name) => model ? capabilities[name] === true : false;
+    const formatOptions = model?.outputFormats?.length ? model.outputFormats : ['pcm_16000', 'pcm_22050', 'pcm_44100', 'mp3_22050_32', 'mp3_44100_64', 'mp3_44100_128', 'mp3_44100_192'];
     const mediaControls = [
-      select('合成语言', 'config.ttsLanguage', config.ttsLanguage, [['auto','自动识别文本'], ...languages]),
-      select('通话音频格式', 'config.outputFormat', config.outputFormat,
-        (model?.outputFormats || defaultFormats).map((id) => [id, id])),
-      capabilities.speed && slider('语速', 'config.speed', config.speed, .7, 1.2, .05),
-      capabilities.stability !== false && slider('稳定性', 'config.stability', config.stability, 0, 1, .05),
-      capabilities.similarity !== false && slider('音色相似度', 'config.similarity', config.similarity, 0, 1, .05),
-      capabilities.style && slider('风格强度', 'config.style', config.style, 0, 1, .05),
-      capabilities.speakerBoost && toggle('音色增强', 'config.useSpeakerBoost', config.useSpeakerBoost),
-      capabilities.autoMode && toggle('自动分块', 'config.autoMode', config.autoMode),
-      capabilities.chunkSchedule && !config.autoMode && input('手动分块（50–500 字符，以逗号分隔）', 'config.chunkSchedule', config.chunkSchedule, 64),
-      capabilities.ssml && toggle('解析 SSML', 'config.enableSsmlParsing', config.enableSsmlParsing),
-      capabilities.pronunciationDictionaries && input('发音词典（最多三组 ID/版本，以逗号分隔）', 'config.pronunciationDictionaries',
-        config.pronunciationDictionaries.map((item) => item.pronunciation_dictionary_id + '/' + item.version_id).join(', '), 800),
-      select('文本规范化', 'config.applyTextNormalization', config.applyTextNormalization, [['auto','自动'],['on','开启'],['off','关闭']]),
-      model?.transport === 'websocket' && toggle('语言专属的文本规范化', 'config.applyLanguageTextNormalization', config.applyLanguageTextNormalization),
-      model?.transport === 'websocket' && select('字幕来源', 'config.preferredAlignment', config.preferredAlignment,
-        [['original','回复原文'],['normalized','服务商规范化文本']]),
+      select('合成语言', 'config.ttsLanguage', config.ttsLanguage, [['auto', '自动识别文本'], ...allLanguages], !languages.length),
+      select('通话音频格式', 'config.outputFormat', config.outputFormat, formatOptions.map((id) => [id, id]), !model),
+      slider('语速', 'config.speed', config.speed, .7, 1.2, .05, !supports('speed')),
+      slider('稳定性', 'config.stability', config.stability, 0, 1, .05, !model),
+      slider('音色相似度', 'config.similarity', config.similarity, 0, 1, .05, !supports('similarity')),
+      slider('风格强度', 'config.style', config.style, 0, 1, .05, !supports('style')),
+      toggle('音色增强', 'config.useSpeakerBoost', config.useSpeakerBoost, !supports('speakerBoost')),
+      toggle('自动分块', 'config.autoMode', config.autoMode, !supports('autoMode')),
+      input('手动分块（50–500 字符，以逗号分隔）', 'config.chunkSchedule', config.chunkSchedule, 64, !supports('chunkSchedule') || config.autoMode),
+      toggle('解析 SSML', 'config.enableSsmlParsing', config.enableSsmlParsing, !supports('ssml')),
+      input('发音词典（最多三组 ID/版本，以逗号分隔）', 'config.pronunciationDictionaries',
+        (config.pronunciationDictionaries || []).map((item) => item.pronunciation_dictionary_id + '/' + item.version_id).join(', '), 800, !supports('pronunciationDictionaries')),
+      select('文本规范化', 'config.applyTextNormalization', config.applyTextNormalization, [['auto', '自动'], ['on', '开启'], ['off', '关闭']], !model),
+      toggle('语言专属的文本规范化', 'config.applyLanguageTextNormalization', config.applyLanguageTextNormalization, !supports('ssml')),
+      select('字幕来源', 'config.preferredAlignment', config.preferredAlignment, [['original', '回复原文'], ['normalized', '服务商规范化文本']], !model),
       number('TTS 流空闲超时（秒）', 'config.ttsInactivityTimeoutSec', config.ttsInactivityTimeoutSec, 5, 180),
-      select('说话语气（提示词）', 'config.tone', config.tone, [['neutral','自然'], ['warm','温暖'], ['professional','专业'], ['energetic','活跃']]),
-      select('表达方式（提示词）', 'config.emotion', config.emotion, [['neutral','默认'], ['calm','平静'], ['happy','积极'], ['empathetic','共情']])
-    ].filter(Boolean).join('');
+      select('说话语气（提示词）', 'config.tone', config.tone, [['neutral', '自然'], ['warm', '温暖'], ['professional', '专业'], ['energetic', '活跃']]),
+      select('表达方式（提示词）', 'config.emotion', config.emotion, [['neutral', '默认'], ['calm', '平静'], ['happy', '积极'], ['empathetic', '共情']])
+    ].join('');
     const voiceLanguageFilter = '<label>筛选语种<select data-voice-language><option value="">全部</option>' +
       allLanguages.map(([id, name]) => '<option value="' + escape(id) + '"' + (id === voiceLanguage ? ' selected' : '') + '>' + escape(name) + '</option>').join('') +
       '</select></label>';
     dialog.innerHTML = '<header class="voice-settings-toolbar"><div><h2 id="voice-settings-title">语音设置</h2><p>音量立即生效。模型、音色与高级参数用于下次通话。</p></div>' +
-      '<button type="button" data-close-settings aria-label="关闭语音设置">关闭</button></header>' +
+      '<div class="voice-settings-toolbar-actions"><button type="button" data-expand-all-settings>展开全部</button><button type="button" data-collapse-all-settings>收起全部</button><button type="button" data-close-settings aria-label="关闭语音设置">关闭</button></div></header>' +
       '<div class="voice-settings-content settings-stack">' +
       (catalogStatus ? '<p class="voice-catalog-status" role="status">' + escape(catalogStatus) + '</p>' : '') +
       group('basic', '常用设置', '语言 · 音色 · 试听',
@@ -189,19 +196,26 @@ export function createVoiceSettings({ endpoint, read, change, scenario }) {
         lane('对话模型', 'fast', current.fastModel) + lane('核验模型', 'slow', current.slowModel) +
         toggle('根据实时字幕提前核验', 'config.speculativeLookup', config.speculativeLookup) +
         number('核验超时（毫秒）', 'config.deepTimeoutMs', config.deepTimeoutMs, 500, 12000, 100)) +
-      group('asr', '语音识别', 'ASR 模型与词汇',
+      group('asr', '语音识别', 'ASR 模型 · 语言 · 词汇 · 音频',
         select('实时 ASR 模型', 'asrModel', current.asrModel, catalog.asrModels.map((item) => [item.id, item.name])) +
-        select('识别语言', 'config.asrLanguage', config.asrLanguage, [['auto','自动识别'], ...allLanguages]) +
-        (asr.prompt ? input('转写提示（场景词汇）', 'config.asrPrompt', config.asrPrompt, 500) : '') +
-        (asr.keyterms ? input('热词（逗号分隔）', 'config.asrKeyterms', config.asrKeyterms, 320) : '') +
-        (asr.noiseReduction ? select('识别侧降噪', 'config.asrNoiseReductionType', config.asrNoiseReductionType,
-          [['near_field','近场'],['far_field','远场'],['off','关闭']]) : '') +
-        (asr.sampleRate ? select('采样率', 'config.asrSampleRate', config.asrSampleRate, [8000,16000,22050,24000,44100,48000].map((hz) => [hz, hz + ' Hz'])) : '') +
-        (asr.chunkMs ? number('音频分块（毫秒）', 'config.asrChunkMs', config.asrChunkMs, 50, 1000) : '') +
-        (asr.timestamps ? toggle('词级时间戳', 'config.asrIncludeTimestamps', config.asrIncludeTimestamps) : '')) +
+        select('识别语言', 'config.asrLanguage', config.asrLanguage, [['auto', '自动识别'], ...allLanguages]) +
+        input('转写提示（场景词汇）', 'config.asrPrompt', config.asrPrompt, 500, !asr.prompt) +
+        input('热词（逗号分隔）', 'config.asrKeyterms', config.asrKeyterms, 320, !asr.keyterms) +
+        select('识别侧降噪', 'config.asrNoiseReductionType', config.asrNoiseReductionType,
+          [['near_field', '近场'], ['far_field', '远场'], ['off', '关闭']], !asr.noiseReduction) +
+        select('采样率', 'config.asrSampleRate', config.asrSampleRate,
+          [8000, 16000, 22050, 24000, 44100, 48000].map((hz) => [hz, hz + ' Hz']), !asr.sampleRate) +
+        number('音频分块（毫秒）', 'config.asrChunkMs', config.asrChunkMs, 50, 1000, 10, !asr.chunkMs) +
+        toggle('词级时间戳', 'config.asrIncludeTimestamps', config.asrIncludeTimestamps, !asr.timestamps)) +
       group('tts', '声音合成', 'TTS 模型与参数',
         select('ElevenLabs TTS 模型', 'ttsModel', current.ttsModel, ttsOptions) + mediaControls) +
-      group('call', '通话控制', 'VAD · 降噪 · 打断',
+      group('call', '通话控制', 'Interaction · VAD · 降噪 · 打断 · 静默',
+        select('交互类型', 'config.interactionType', config.interactionType || 'voice_call',
+          [['voice_call', 'Voice Call'], ['voice_assistant', 'Voice Assistant']]) +
+        select('VAD 引擎', 'config.vad', config.vad || 'silero_vad',
+          [['silero_vad', 'Silero VAD'], ['server_vad', 'Server VAD'], ['semantic_vad', 'Semantic VAD']]) +
+        select('插话策略', 'config.bargeIn', config.bargeIn || 'server_vad',
+          [['server_vad', 'Server VAD'], ['semantic_vad', 'Semantic VAD'], ['off', '关闭']]) +
         number('句尾静音（毫秒）', 'config.vadMinSilenceMs', config.vadMinSilenceMs, 100, 3000) +
         number('最短语音（毫秒）', 'config.vadMinSpeechMs', config.vadMinSpeechMs, 20, 1500) +
         slider('Silero VAD 检测阈值', 'config.vadThreshold', config.vadThreshold, .1, .9, .05) +
@@ -210,12 +224,15 @@ export function createVoiceSettings({ endpoint, read, change, scenario }) {
         number('轮次结束最长等待（毫秒）', 'config.endpointMaxMs', config.endpointMaxMs, config.endpointMinMs, 10000) +
         toggle('浏览器降噪', 'config.noiseReduction', config.noiseReduction) +
         toggle('允许用户打断播报', 'config.allowInterruption', config.allowInterruption) +
-        (config.allowInterruption ? number('打断所需语音（毫秒）', 'config.interruptionMinMs', config.interruptionMinMs, 50, 3000) +
-          number('打断所需最少词数', 'config.interruptionMinWords', config.interruptionMinWords, 0, 10) : '') +
+        number('打断所需语音（毫秒）', 'config.interruptionMinMs', config.interruptionMinMs, 50, 3000) +
+        number('打断所需最少词数', 'config.interruptionMinWords', config.interruptionMinWords, 0, 10) +
         toggle('静音时询问是否还在', 'config.silenceStrategy', config.silenceStrategy) +
-        (config.silenceStrategy ? number('静音提醒等待（秒）', 'config.userAwayTimeoutSec', config.userAwayTimeoutSec, 5, 120) : '') +
+        number('静音提醒等待（秒）', 'config.userAwayTimeoutSec', config.userAwayTimeoutSec, 5, 120) +
         toggle('持续静音后挂断', 'config.hangupStrategy', config.hangupStrategy) +
-        number('最长通话（秒）', 'config.maxCallTime', config.maxCallTime, 30, 7200)) + '</div>';
+        number('最长通话（秒）', 'config.maxCallTime', config.maxCallTime, 30, 7200) +
+        toggle('规则命中直答（低延迟路径）', 'config.groundedFastPath', config.groundedFastPath) +
+        number('慢模型核验超时（毫秒）', 'config.deepTimeoutMs', config.deepTimeoutMs, 500, 12000, 100) +
+        toggle('根据实时字幕提前核验', 'config.speculativeLookup', config.speculativeLookup)) + '</div>';
     dialog.querySelectorAll('[data-settings-group]').forEach((element) => { element.open = groups.has(element.dataset.settingsGroup); });
     if (scroll) dialog.querySelector('.voice-settings-content').scrollTop = scroll;
     if (activeKey) dialog.querySelector('[data-settings-key="' + activeKey + '"]')?.focus({ preventScroll: true });
@@ -312,6 +329,8 @@ export function createVoiceSettings({ endpoint, read, change, scenario }) {
       dialog.addEventListener('click', (event) => {
         const target = event.target.closest('button');
         if (!target) return;
+        if (target.hasAttribute('data-expand-all-settings')) { dialog.querySelectorAll('[data-settings-group]').forEach((group) => { group.open = true; }); return; }
+        if (target.hasAttribute('data-collapse-all-settings')) { dialog.querySelectorAll('[data-settings-group]').forEach((group) => { group.open = false; }); return; }
         if (target.hasAttribute('data-close-settings')) dialog.close();
         if (target.hasAttribute('data-play-preview')) void preview();
         if (target.hasAttribute('data-more-voices')) void loadVoices(true);
