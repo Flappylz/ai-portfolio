@@ -5,3 +5,5 @@ dist
 .openai
 runtime/.env
 runtime/.env.local
+CODEX_TASK_2026-11-18.md
+PORTFOLIO_REVIEW_2026-11-18.md
