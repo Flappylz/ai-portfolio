@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 
 const files = ['index.html', 'src/main.js', 'src/styles.css', 'src/data/projects.js', 'src/voice-settings.js'];
 const forbidden = [/API_KEY\s*=/i, /SECRET\s*=/i, /TOKEN\s*=/i, /sk-[A-Za-z0-9]{16,}/, /BEGIN (RSA|OPENSSH|EC|PRIVATE) KEY/];
@@ -18,7 +18,7 @@ const main = await readFile('src/main.js', 'utf8');
 const index = await readFile('index.html', 'utf8');
 const voiceSettings = await readFile('src/voice-settings.js', 'utf8');
 const siteText = main + index;
-for (const required of ['apps', 'appLauncher', 'aboutView', 'projectsView', 'methodView', 'contactView', 'resume-download', 'assets/portfolio-qr.svg', 'voiceScenarioView', 'voice-details', 'runtimeMode', 'voiceCallStatus', 'LiveKit WebRTC', 'sandbox / simulated', 'hashchange', 'github.com/Flappylz', 'speechSynthesis', 'partial_transcript', 'tts_first_byte', 'data-voice-captions', 'data-voice-model', 'data-voice-agent-model', 'data-voice-asr-model', 'data-voice-tone', 'data-voice-pitch', 'data-voice-volume', 'data-voice-preview', 'data-voice-style', 'data-voice-output-format', 'data-voice-chunk-schedule', 'data-voice-barge-in', 'voiceInsights', 'eleven_turbo_v2_5', 'fengliangze-ai-voice-runtime.wellsfung.chatgpt.site']) {
+for (const required of ['apps', 'appLauncher', 'mission-console', 'aboutView', 'projectsView', 'methodView', 'contactView', 'resume-download', 'assets/portfolio-qr.svg', 'voiceScenarioView', 'voice-details', 'avatar-pulse-canvas', 'runtimeMode', 'voiceCallStatus', 'LiveKit WebRTC', 'sandbox / simulated', 'hashchange', 'github.com/Flappylz', 'speechSynthesis', 'partial_transcript', 'tts_first_byte', 'data-voice-captions', 'data-voice-model', 'data-voice-agent-model', 'data-voice-asr-model', 'data-voice-tone', 'data-voice-pitch', 'data-voice-volume', 'data-voice-preview', 'data-voice-style', 'data-voice-output-format', 'data-voice-chunk-schedule', 'data-voice-barge-in', 'voiceInsights', 'eleven_turbo_v2_5', 'fengliangze-ai-voice-runtime.wellsfung.chatgpt.site']) {
   if (!siteText.includes(required)) {
     console.error(`Missing required site behavior: ${required}`);
     failed = true;
@@ -44,6 +44,16 @@ const resume = await readFile('public/resume/fengliangze-ai-product-manager.pdf'
 if (resume.subarray(0, 5).toString() !== '%PDF-') {
   console.error('The public resume download is not a PDF.');
   failed = true;
+}
+
+for (const avatar of ['carrier-lan.png', 'airline-lina.png', 'football-leo.png']) {
+  try {
+    const info = await stat(`public/assets/avatars/${avatar}`);
+    if (!info.isFile() || info.size < 1000) throw new Error('invalid avatar asset');
+  } catch {
+    console.error(`Missing or invalid avatar asset: ${avatar}`);
+    failed = true;
+  }
 }
 
 if (failed) process.exit(1);

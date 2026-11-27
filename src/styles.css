@@ -771,6 +771,140 @@ body.voice-demo-route {
 .voice-demo-route .voice-settings-dialog [data-preview-status] { margin: 0; }
 .voice-demo-route .voice-settings-dialog [data-preview-status]:empty { display: none; }
 
+/* Mission Control redesign: a deep-sea operations console for the portfolio. */
+body.mission-control-route {
+  --mission-bg: #06111c;
+  --mission-panel: #0a1a29;
+  --mission-panel-2: #0d2233;
+  --mission-line: rgba(133, 204, 255, .18);
+  --mission-line-strong: rgba(133, 204, 255, .42);
+  --mission-text: #edf7ff;
+  --mission-muted: #9ab3c8;
+  --mission-quiet: #66879e;
+  --mission-cyan: #77dcff;
+  --mission-cyan-strong: #31c7ef;
+  --mission-amber: #ffb45f;
+  --mission-violet: #aa9bff;
+  color-scheme: dark;
+  color: var(--mission-text);
+  background: var(--mission-bg);
+  font-family: "IBM Plex Sans", "PingFang SC", sans-serif;
+}
+body.mission-control-route::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(119,220,255,.028) 1px, transparent 1px), linear-gradient(90deg, rgba(119,220,255,.025) 1px, transparent 1px), radial-gradient(circle at 12% 10%, rgba(49,199,239,.14), transparent 28%), radial-gradient(circle at 90% 70%, rgba(91,77,201,.14), transparent 34%);
+  background-size: 48px 48px, 48px 48px, auto, auto;
+}
+.mission-control-route .site-header {
+  max-width: 1240px;
+  height: 74px;
+  border-bottom: 1px solid var(--mission-line);
+  background: rgba(6,17,28,.76);
+  backdrop-filter: blur(18px);
+}
+.mission-control-route .brand { color: var(--mission-text); }
+.mission-control-route .brand-mark { border-color: var(--mission-cyan); background: rgba(119,220,255,.08); }
+.mission-control-route .brand-mark i { background: var(--mission-cyan); box-shadow: 0 0 16px rgba(119,220,255,.6); }
+.mission-control-route .brand small { color: var(--mission-quiet); }
+.mission-control-route .site-nav a { color: var(--mission-muted); }
+.mission-control-route .site-nav a:hover, .mission-control-route .site-nav a[aria-current="page"] { color: var(--mission-cyan); }
+.mission-control-route .site-footer { max-width: 1240px; border-color: var(--mission-line); color: var(--mission-quiet); }
+.mission-control-route .site-footer a { color: var(--mission-muted); }
+.mission-console { position: relative; padding-top: 30px; padding-bottom: 72px; }
+.mission-topline { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--mission-line); color: var(--mission-quiet); font: 10px "IBM Plex Mono", monospace; letter-spacing: .08em; }
+.mission-topline span:first-child { display: inline-flex; align-items: center; gap: 8px; color: var(--mission-cyan); }
+.mission-topline i { width: 6px; height: 6px; border-radius: 50%; background: var(--mission-cyan); box-shadow: 0 0 14px var(--mission-cyan); animation: consolePulse 2.4s ease-in-out infinite; }
+.mission-hero { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(260px, .7fr); gap: 40px; align-items: end; padding: clamp(54px, 9vw, 110px) 0 64px; }
+.mission-hero h1 { max-width: 740px; margin: 8px 0 20px; color: var(--mission-text); font-size: clamp(54px, 8vw, 112px); line-height: .94; letter-spacing: -.07em; }
+.mission-hero h1 em { color: var(--mission-cyan); font-style: normal; text-shadow: 0 0 34px rgba(119,220,255,.25); }
+.mission-hero .portfolio-kicker { color: var(--mission-cyan); font: 11px "IBM Plex Mono", monospace; letter-spacing: .14em; }
+.mission-hero .portfolio-lede { max-width: 640px; color: var(--mission-muted); font-size: 16px; line-height: 1.7; }
+.mission-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+.mission-actions .button { min-height: 46px; border-radius: 7px; }
+.mission-actions .button.primary { color: #04111b; background: var(--mission-cyan); box-shadow: 0 0 28px rgba(119,220,255,.18); }
+.mission-actions .button.primary:hover { background: #a3edff; }
+.mission-actions .button.ghost { color: var(--mission-muted); border: 1px solid var(--mission-line-strong); background: rgba(9,29,45,.7); }
+.mission-actions .button.ghost:hover { color: var(--mission-cyan); border-color: var(--mission-cyan); }
+.mission-readout { position: relative; display: grid; gap: 8px; min-height: 220px; padding: 24px; border: 1px solid var(--mission-line); background: linear-gradient(145deg, rgba(18,47,68,.82), rgba(5,18,29,.78)); box-shadow: inset 0 0 50px rgba(61,160,201,.06); overflow: hidden; }
+.mission-readout::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(transparent 49%, rgba(119,220,255,.08) 50%, transparent 51%); background-size: 100% 10px; opacity: .32; animation: scanline 8s linear infinite; }
+.readout-label { position: relative; z-index: 1; color: var(--mission-quiet); font: 10px "IBM Plex Mono", monospace; letter-spacing: .12em; }
+.mission-readout strong { position: relative; z-index: 1; color: var(--mission-cyan); font: 92px/ .9 "IBM Plex Mono", monospace; letter-spacing: -.1em; text-shadow: 0 0 32px rgba(119,220,255,.32); }
+.mission-readout > span:not(.readout-label) { position: relative; z-index: 1; color: var(--mission-muted); font-size: 12px; }
+.mission-readout small { position: relative; z-index: 1; color: var(--mission-quiet); font: 10px "IBM Plex Mono", monospace; }
+.readout-line { position: relative; z-index: 1; display: flex; align-items: center; gap: 4px; height: 30px; }
+.readout-line i { width: 3px; height: 8px; background: var(--mission-cyan); opacity: .55; animation: readoutBars 1.8s ease-in-out infinite; animation-delay: calc(var(--i, 0) * 80ms); }
+.readout-line i:nth-child(2) { height: 22px; animation-delay: 90ms; }.readout-line i:nth-child(3) { height: 13px; animation-delay: 170ms; }.readout-line i:nth-child(4) { height: 26px; animation-delay: 250ms; }.readout-line i:nth-child(5) { height: 10px; animation-delay: 330ms; }.readout-line i:nth-child(6) { height: 19px; animation-delay: 410ms; }.readout-line i:nth-child(7) { height: 7px; animation-delay: 490ms; }
+.mission-section-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
+.mission-section-head h2 { margin: 6px 0 0; color: var(--mission-text); font-size: clamp(26px, 4vw, 44px); letter-spacing: -.05em; }
+.mission-section-head p { max-width: 360px; margin: 0; color: var(--mission-muted); font-size: 13px; line-height: 1.6; }
+.mission-section-head .section-label { color: var(--mission-cyan); font: 10px "IBM Plex Mono", monospace; letter-spacing: .12em; }
+.mission-control-route .app-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.mission-control-route .app-card { position: relative; display: flex; flex-direction: column; min-height: 470px; overflow: hidden; border: 1px solid var(--mission-line); border-radius: 6px; background: linear-gradient(165deg, rgba(13,34,51,.94), rgba(7,18,30,.98)); box-shadow: none; transition: transform .35s cubic-bezier(.2,.8,.2,1), border-color .35s ease, box-shadow .35s ease; }
+.mission-control-route .app-card:hover, .mission-control-route .app-card:focus-within { transform: translateY(-8px); border-color: var(--mission-cyan); box-shadow: 0 18px 60px rgba(5,16,28,.55), 0 0 34px rgba(119,220,255,.1); }
+.mission-control-route .app-card-art { position: relative; height: 248px; overflow: hidden; border-bottom: 1px solid var(--mission-line); background: radial-gradient(circle at 55% 38%, rgba(119,220,255,.18), transparent 28%), linear-gradient(145deg, #0b263a, #07131f); }
+.mission-control-route .app-card-art.ice { background: radial-gradient(circle at 55% 38%, rgba(161,204,255,.18), transparent 28%), linear-gradient(145deg, #0c2636, #07131f); }
+.mission-control-route .app-card-art.amber { background: radial-gradient(circle at 55% 38%, rgba(255,180,95,.18), transparent 28%), linear-gradient(145deg, #2d2431, #101621); }
+.mission-control-route .app-card-art > span, .mission-control-route .app-card-art > b { position: relative; z-index: 3; color: var(--mission-muted); font: 10px "IBM Plex Mono", monospace; letter-spacing: .1em; }
+.mission-control-route .app-card-art > b { float: right; color: var(--mission-cyan); }
+.mission-control-route .app-card-art img { position: absolute; z-index: 2; left: 50%; bottom: -8%; width: 84%; height: 100%; object-fit: contain; object-position: center bottom; transform: translateX(-50%); filter: saturate(.86) contrast(1.06); transition: transform .5s ease, filter .5s ease; }
+.mission-control-route .app-card:hover .app-card-art img { transform: translateX(-50%) translateY(-8px) scale(1.04); filter: saturate(1) contrast(1.07) brightness(1.05); }
+.app-art-grid { position: absolute; inset: 0; opacity: .25; background-image: linear-gradient(rgba(119,220,255,.18) 1px, transparent 1px), linear-gradient(90deg, rgba(119,220,255,.18) 1px, transparent 1px); background-size: 32px 32px; mask-image: linear-gradient(to bottom, black, transparent 82%); }
+.mission-control-route .app-card-art i { position: absolute; z-index: 3; width: 5px; height: 5px; border-radius: 50%; background: var(--mission-cyan); box-shadow: 0 0 14px var(--mission-cyan); animation: cardSignal 2.8s ease-in-out infinite; }
+.mission-control-route .app-card-art i:nth-of-type(1) { top: 36%; left: 22%; }.mission-control-route .app-card-art i:nth-of-type(2) { top: 52%; left: 74%; animation-delay: .8s; }.mission-control-route .app-card-art i:nth-of-type(3) { top: 74%; left: 28%; animation-delay: 1.4s; }
+.mission-control-route .app-card-body { display: flex; flex: 1; flex-direction: column; padding: 18px; }
+.mission-control-route .app-card-head { align-items: center; padding: 0 0 12px; border-bottom: 1px solid var(--mission-line); }
+.mission-control-route .app-type { color: var(--mission-quiet); font: 10px "IBM Plex Mono", monospace; letter-spacing: .08em; }
+.mission-control-route .app-status { color: var(--mission-cyan); font: 10px "IBM Plex Mono", monospace; }
+.mission-control-route .app-card h3 { margin: 18px 0 8px; color: var(--mission-text); font-size: 24px; letter-spacing: -.04em; }
+.mission-control-route .app-card p { margin: 0; color: var(--mission-muted); font-size: 13px; line-height: 1.6; }
+.app-card-signal { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding: 16px 0 12px; border-top: 1px solid var(--mission-line); color: var(--mission-quiet); font: 10px "IBM Plex Mono", monospace; }
+.app-card-signal strong { color: var(--mission-text); font-weight: 500; }
+.mission-control-route .case-card-actions { justify-content: space-between; }
+.mission-control-route .case-card-actions a { color: var(--mission-muted); font-size: 12px; }
+.mission-control-route .case-card-actions .app-open { color: var(--mission-cyan); }
+.mission-proof { display: grid; grid-template-columns: 1.1fr 1fr auto; gap: 28px; align-items: end; margin-top: 46px; padding: 24px; border: 1px solid var(--mission-line); background: rgba(11,30,45,.62); }
+.mission-proof h3 { margin: 5px 0 8px; color: var(--mission-text); font-size: 21px; }.mission-proof p { max-width: 460px; margin: 0; color: var(--mission-muted); font-size: 13px; line-height: 1.65; }.mission-proof .portfolio-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 0; }.mission-proof .portfolio-stats > div { border-top-color: var(--mission-line-strong); }.mission-proof .portfolio-stats dt { color: var(--mission-quiet); }.mission-proof .portfolio-stats dd { color: var(--mission-cyan); }.mission-proof-links { display: grid; gap: 12px; justify-items: end; }.mission-proof-links a { color: var(--mission-cyan); font-size: 12px; }.mission-proof-links .resume-download { margin: 0; min-height: 38px; color: #04111b; background: var(--mission-cyan); }
+.mission-control-route .portfolio-page > h1 { color: var(--mission-text); }.mission-control-route .portfolio-page > p, .mission-control-route .portfolio-page .portfolio-lede { color: var(--mission-muted); }.mission-control-route .portfolio-case, .mission-control-route .method-grid > article { border-color: var(--mission-line); background: linear-gradient(165deg, rgba(13,34,51,.94), rgba(7,18,30,.98)); box-shadow: none; }.mission-control-route .portfolio-case h2, .mission-control-route .method-grid h2, .mission-control-route .portfolio-case h3 { color: var(--mission-text); }.mission-control-route .portfolio-case p, .mission-control-route .method-grid p { color: var(--mission-muted); }.mission-control-route .case-nav a { border-color: var(--mission-line); color: var(--mission-muted); }.mission-control-route .case-nav a[aria-current="page"], .mission-control-route .case-nav a:hover { border-color: var(--mission-cyan); color: var(--mission-cyan); }.mission-control-route .case-technical { border-color: var(--mission-line); }.mission-control-route .case-technical summary { color: var(--mission-cyan); }.mission-control-route .portfolio-contact a { color: var(--mission-cyan); }.mission-control-route .portfolio-qr img { border-color: var(--mission-line); background: var(--mission-panel); }
+
+/* Shared role stage and state system. */
+.voice-demo-route .voice-stage { position: relative; background: radial-gradient(circle at 50% 42%, rgba(67,179,226,.16), transparent 38%), linear-gradient(165deg, #0b1a29, #06111b); border-color: var(--line-strong); }
+.voice-demo-route .voice-stage::before { content: "VOICE CHAMBER / LIVE STATE"; position: absolute; top: 20px; right: 24px; color: var(--quiet); font: 10px "IBM Plex Mono", monospace; letter-spacing: .1em; opacity: .8; }
+.voice-demo-route .agent-avatar { overflow: hidden; position: relative; width: 42px; height: 42px; border-radius: 9px; background: #10263a; }
+.voice-demo-route .agent-avatar img { width: 170%; height: 170%; object-fit: contain; object-position: center bottom; transform: translate(-22%, 10%); }
+.voice-demo-route .context-intro .scenario-icon { overflow: hidden; display: grid; place-items: center; background: #10263a; }
+.voice-demo-route .context-intro .scenario-icon img { width: 150%; height: 150%; object-fit: contain; object-position: center bottom; transform: translateY(10%); }
+.voice-demo-route .caller-orb { display: grid; place-items: end center; isolation: isolate; width: min(380px, 62vw); height: min(420px, 56vh); margin: clamp(20px, 4vh, 48px) auto 8px; overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: none; animation: avatarBreathe 4.8s ease-in-out infinite; }
+.voice-demo-route .caller-orb > img { position: relative; z-index: 3; width: 145%; height: 145%; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 24px 38px rgba(51,171,218,.2)) saturate(.9); transition: transform .42s ease, filter .42s ease; }
+.voice-demo-route .caller-orb .avatar-rings { position: absolute; z-index: 1; inset: 14% 4% 4%; border-radius: 50%; background: radial-gradient(circle, rgba(119,220,255,.2), transparent 58%); box-shadow: 0 0 0 1px rgba(119,220,255,.2), 0 0 70px rgba(119,220,255,.22), inset 0 0 38px rgba(119,220,255,.1); }
+.voice-demo-route .caller-orb .avatar-pulse-canvas { position: absolute; z-index: 2; inset: 3% -2% -2%; width: 104%; height: 104%; pointer-events: none; }
+.voice-demo-route .caller-orb .avatar-rings i { position: absolute; inset: -8%; border: 1px solid rgba(119,220,255,.16); border-radius: 50%; animation: avatarRing 4.5s ease-out infinite; }.voice-demo-route .caller-orb .avatar-rings i:nth-child(2) { inset: 10%; animation-delay: 1.2s; }.voice-demo-route .caller-orb .avatar-rings i:nth-child(3) { inset: 24%; animation-delay: 2.4s; }
+.voice-demo-route .caller-orb .avatar-code { position: absolute; z-index: 4; left: 50%; bottom: -3px; transform: translateX(-50%); color: var(--accent); font: 10px "IBM Plex Mono", monospace; letter-spacing: .14em; }
+.voice-demo-route .caller-orb.listening { animation-duration: 2.8s; }.voice-demo-route .caller-orb.listening > img { transform: translateY(-5px) scale(1.02); filter: drop-shadow(0 24px 42px rgba(119,220,255,.28)) saturate(1); }.voice-demo-route .caller-orb.thinking { animation-duration: 3.8s; }.voice-demo-route .caller-orb.thinking > img { transform: translateY(4px) rotate(.5deg); filter: drop-shadow(0 24px 42px rgba(255,180,95,.24)) saturate(.78); }.voice-demo-route .caller-orb.speaking { animation-duration: 1.05s; }.voice-demo-route .caller-orb.speaking > img { transform: translateY(-4px) scale(1.035); filter: drop-shadow(0 24px 48px rgba(119,220,255,.34)) saturate(1.06) brightness(1.06); }.voice-demo-route .caller-orb.interrupted { filter: saturate(.7); }.voice-demo-route .caller-orb.ended { opacity: .54; animation: none; }
+.voice-demo-route .voice-state-caption { display: flex; align-items: center; justify-content: center; gap: 10px; margin: -4px auto 2px; color: var(--quiet); font: 10px "IBM Plex Mono", monospace; letter-spacing: .05em; }.voice-demo-route .voice-state-caption b { color: var(--accent); font-weight: 500; }
+.voice-demo-route .call-wave { margin-top: 4px; }.voice-demo-route .call-wave i { width: 4px; min-height: 4px; background: var(--accent); }
+.voice-demo-route .call-wave.sound-active i { box-shadow: 0 0 14px var(--accent); }
+
+@keyframes consolePulse { 0%,100% { opacity: .45; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes scanline { from { transform: translateY(-12px); } to { transform: translateY(12px); } }
+@keyframes readoutBars { 0%,100% { transform: scaleY(.5); opacity: .45; } 50% { transform: scaleY(1.15); opacity: 1; } }
+@keyframes cardSignal { 0%,100% { opacity: .3; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.3); } }
+@keyframes avatarBreathe { 0%,100% { transform: translateY(0) scale(.985); } 46% { transform: translateY(-5px) scale(1.012); } 72% { transform: translateY(-1px) scale(1); } }
+@keyframes avatarRing { 0% { opacity: .55; transform: scale(.82); } 70%,100% { opacity: 0; transform: scale(1.18); } }
+
+@media (max-width: 900px) {
+  .mission-hero { grid-template-columns: 1fr; gap: 24px; padding-block: 52px 48px; }.mission-readout { min-height: 170px; }.mission-readout strong { font-size: 70px; }.mission-proof { grid-template-columns: 1fr; }.mission-proof-links { justify-items: start; }.mission-control-route .app-grid { grid-template-columns: 1fr; }.mission-control-route .app-card { min-height: 0; }.mission-control-route .app-card-art { height: 220px; }
+}
+@media (max-width: 760px) {
+  .mission-control-route .site-header { height: auto; min-height: 66px; }.mission-console { padding-top: 18px; }.mission-topline { align-items: flex-start; flex-direction: column; gap: 5px; }.mission-hero h1 { font-size: clamp(48px, 17vw, 78px); }.mission-hero .portfolio-lede { font-size: 14px; }.mission-section-head { align-items: flex-start; flex-direction: column; gap: 10px; }.mission-proof { padding: 17px; }.mission-proof .portfolio-stats { grid-template-columns: 1fr 1fr 1fr; gap: 7px; }.mission-proof .portfolio-stats dd { font-size: 17px; }.voice-demo-route .caller-orb { width: 250px; height: 280px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mission-control-route *, .voice-demo-route .caller-orb, .voice-demo-route .caller-orb .avatar-rings i { animation: none !important; transition-duration: .01ms !important; }
+}
+
 @media (min-width: 960px) {
   .voice-demo-route .voice-observe-panel { grid-column: auto; }
 }

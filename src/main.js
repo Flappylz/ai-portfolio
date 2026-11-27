@@ -99,9 +99,9 @@ const portfolioStats = [
   ['20 人', '跨职能团队协作'],
 ];
 const navItems = [
-  ['about', '关于我'],
   ['projects', '作品'],
-  ['method', '方法论'],
+  ['method', '架构'],
+  ['about', '关于'],
   ['contact', '联系'],
 ];
 let activePage = '';
@@ -132,23 +132,21 @@ function resumeLink() {
 
 function appCard(item) {
   return '<article class="app-card" data-app-route="' + esc(item.route) + '">' +
-    '<div class="app-card-head"><span class="case-index">' + esc(item.number) + '</span>' +
-    '<span class="app-status">公开 Demo</span></div><div class="app-card-body">' +
+    '<div class="app-card-art ' + esc(item.avatar?.accent || 'cyan') + '"><span>' + esc(item.number) + ' / ' + esc(item.type || 'VOICE') + '</span><b>' + esc(item.avatar?.roleCode || 'VOICE / 00') + '</b><div class="app-art-grid"></div><img src="' + asset(item.avatar?.image || '') + '" alt="" loading="lazy"><i></i><i></i><i></i></div>' +
+    '<div class="app-card-body"><div class="app-card-head"><span class="app-type">' + esc(item.avatar?.shortRole || 'Voice Agent') + '</span><span class="app-status">LIVE DEMO</span></div>' +
     '<h3>' + esc(item.productTitle) + '</h3><p>' + esc(item.value) + '</p>' +
-    '<div class="case-card-result"><span>演示范围</span><strong>' + esc(item.result) + '</strong></div>' +
-    '<div class="case-card-actions"><a class="app-open" href="' + item.route + '">体验语音 <span aria-hidden="true">↗</span></a>' +
-    '<a href="' + item.caseRoute + '">查看案例 <span aria-hidden="true">→</span></a></div></div></article>';
+    '<div class="app-card-signal"><span>' + esc(item.avatar?.signal || '实时语音 · Agent') + '</span><strong>' + esc(item.result) + '</strong></div>' +
+    '<div class="case-card-actions"><a class="app-open" href="' + item.route + '">进入通话舱 <span aria-hidden="true">↗</span></a>' +
+    '<a href="' + item.caseRoute + '">拆解架构 <span aria-hidden="true">→</span></a></div></div></article>';
 }
 
 function appLauncher() {
-  const facts = portfolioStats.map(([value, label]) =>
-    '<div><dt>' + label + '</dt><dd>' + value + '</dd></div>').join('');
-  return shell('<section class="app-launcher section-pad"><div class="portfolio-hero"><div>' +
-    '<p class="portfolio-kicker">AI 产品经理 · 实时语音与智能呼叫中心</p>' +
-    '<h1>冯良泽</h1><p class="portfolio-lede">我做端到端的语音 Agent 产品，从通话体验和业务策略，到指标定义、测试验收与上线观测。</p>' +
-    '</div><dl class="portfolio-stats" aria-label="简历中的关键经历">' + facts + '</dl></div>' +
-    '<div class="launcher-head"><h2>作品</h2>' + resumeLink() + '</div>' +
-    '<div class="app-grid">' + apps.map(appCard).join('') + '</div></section>');
+  const facts = portfolioStats.map(([value, label]) => '<div><dt>' + label + '</dt><dd>' + value + '</dd></div>').join('');
+  return shell('<section class="mission-console section-pad"><div class="mission-topline"><span><i></i> PORTFOLIO CONTROL ROOM / 2026</span><span>LIVE SYSTEM · 03 SCENARIOS READY</span></div>' +
+    '<div class="mission-hero"><div><p class="portfolio-kicker">AI PRODUCT BUILDER · REALTIME VOICE</p><h1>把 AI 变成<br><em>可交付的通话。</em></h1><p class="portfolio-lede">三个可直接拨打的 Voice Agent，展示我如何从业务问题、角色设定和知识库，做到实时交互、可观测和可验收。</p><div class="mission-actions"><a class="button primary" href="#/apps/voice?scenario=carrier">启动第一个 Demo <span aria-hidden="true">↗</span></a><a class="button ghost" href="#/method">查看技术路线 <span aria-hidden="true">→</span></a></div></div><div class="mission-readout"><span class="readout-label">SYSTEM READOUT</span><strong>03</strong><span>voice applications</span><div class="readout-line"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><small>LiveKit / ElevenLabs / Agent / Trace</small></div></div>' +
+    '<div class="mission-section-head"><div><span class="section-label">APPLICATION BAY</span><h2>选择一个通话场景</h2></div><p>每个入口都是真实可运行的交互页面。先体验，再打开架构和证据。</p></div>' +
+    '<div class="app-grid">' + apps.map(appCard).join('') + '</div>' +
+    '<div class="mission-proof"><div><span class="section-label">DELIVERY SIGNALS</span><h3>从体验到交付证据</h3><p>角色状态、ASR/TTS 字幕、RTC 指标、知识命中和完整 Trace 同时出现，面试官可以沿着一通电话看到产品决策。</p></div><dl class="portfolio-stats" aria-label="关键经历">' + facts + '</dl><div class="mission-proof-links"><a href="#/projects">查看作品拆解 →</a>' + resumeLink() + '</div></div></section>');
 }
 
 function homeView() {
@@ -269,6 +267,47 @@ function updateVoiceWaveform() {
     bar.style.height = `${Math.round(6 + level * 30)}px`;
     bar.style.opacity = String(active ? 0.56 + level * 0.44 : 0.24);
   });
+  const canvas = document.querySelector('.avatar-pulse-canvas');
+  if (canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+    const context = canvas.getContext('2d');
+    if (context) {
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      context.clearRect(0, 0, rect.width, rect.height);
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      const base = Math.min(rect.width, rect.height) * .28;
+      const color = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#8ac9ff';
+      const pulse = base * (1 + Math.min(.24, smoothed * 1.7));
+      context.strokeStyle = color;
+      context.globalAlpha = active ? .42 : .14;
+      context.lineWidth = 1;
+      context.beginPath();
+      context.arc(centerX, centerY, pulse, -Math.PI * .75, Math.PI * .22);
+      context.stroke();
+      context.globalAlpha = active ? .22 : .08;
+      context.beginPath();
+      context.arc(centerX, centerY, pulse * 1.18, Math.PI * .18, Math.PI * 1.12);
+      context.stroke();
+      if (active) {
+        context.fillStyle = color;
+        for (let index = 0; index < 9; index += 1) {
+          const angle = (performance.now() / 2600) + index * .71;
+          const radius = pulse * (1.05 + (index % 3) * .08);
+          const size = 1 + smoothed * 3 * ((index % 2) + .5);
+          context.globalAlpha = .2 + smoothed * .55;
+          context.beginPath();
+          context.arc(centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius, size, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
+      context.globalAlpha = 1;
+    }
+  }
   state.voiceWaveFrame = window.requestAnimationFrame(updateVoiceWaveform);
 }
 function addVoiceAnalyserForTrack(track) {
@@ -366,7 +405,8 @@ function voiceScenarioView(id) {
     captionRow('语音助手', state.voiceTtsPartial || state.voiceTtsText, '助手的播报会在这里显示', 'assistant') + '</div>';
   const liveCaption = state.voiceSubtitleVisible && isDemo() ? demoCaptions : state.voiceSubtitleVisible ? '<div class="live-subtitle ' + (liveCaptionText ? 'has-text' : 'placeholder') + '" role="status" aria-live="polite"><span>' + liveCaptionRole + '</span><p>' + esc(liveCaptionText || '说话时，实时字幕会显示在这里') + '</p></div>' : '';
   const transcriptPanel = state.voiceSubtitleVisible ? '<div class="voice-transcript"><div class="transcript-head"><span>' + (isDemo() ? '完整通话记录' : 'ASR / TTS TRANSCRIPT') + ' · ' + state.voiceConversation.length + ' 轮</span><b>' + state.voiceCallStatus.toUpperCase() + '</b></div><div class="transcript-layer partial"><span>实时转写（ASR）</span><p>' + esc(state.voicePartial || '等待用户说话…') + '</p></div><div class="conversation-thread" aria-live="polite">' + messages + '</div><div class="transcript-layer tts"><span>播报字幕（TTS）</span><p>' + esc(state.voiceTtsPartial || state.voiceTtsText || '等待 Agent 播报…') + '</p></div></div>' : '<div class="subtitle-hidden">字幕已隐藏。你仍可以在右侧日志与指标面板查看事件。</div>';
-  const agentAvatar = '<div class="agent-identity"><div class="agent-avatar ' + scenario.accent + '">' + scenario.title.slice(0, 1) + '</div><div><b>' + esc(scenario.agentName || scenario.title) + '</b><small>' + esc(scenario.agentRole || 'Voice Agent') + '</small></div></div>';
+  const avatar = scenario.avatar || { image: '', roleCode: 'VOICE / 00', shortRole: 'Voice Agent', alt: scenario.title, accent: 'cyan', signal: 'Realtime voice' };
+  const agentAvatar = '<div class="agent-identity"><div class="agent-avatar ' + esc(avatar.accent || scenario.accent) + '"><img src="' + asset(avatar.image) + '" alt="' + esc(avatar.alt) + '"></div><div><b>' + esc(scenario.agentName || scenario.title) + '</b><small>' + esc(scenario.agentRole || 'Voice Agent') + '</small></div></div>';
   const option = (value, current, label) => '<option value="' + esc(value) + '"' + (current === value ? ' selected' : '') + '>' + label + '</option>';
   const settingsDisclosure = (title, hint, body, open = false) => '<details class="settings-disclosure"' + (open ? ' open' : '') + '><summary><span>' + title + '</span><small>' + hint + '</small><b>⌄</b></summary><div class="settings-disclosure-body">' + body + '</div></details>';
   const baseSettings = '<div class="settings-stack">' +
@@ -466,7 +506,7 @@ function voiceScenarioView(id) {
     '<div class="obs-boundary"><span>' + (state.runtimeMode === 'sandbox' ? '模拟演示 · SANDBOX / SIMULATED' : runtimeLabel) +
     '</span><p>' + (state.runtimeMode === 'sandbox' ? '当前数据用于演示。' : state.runtimeMode === 'ready' ?
       '接通后可展开查看实测参数。' : '指标来自本次会话。知识库使用演示规则。') + '</p></div></aside>';
-  return shell('<section class="voice-screen section-pad" ' + (isDemo() ? 'data-mobile-panel="' + selectedMobilePanel + '" ' : '') + 'data-direction="' + scenario.direction + '"><div class="voice-screen-head"><div><span class="section-label">' + (isDemo() ? (scenario.direction === "outbound" ? "外呼" : "呼入") : "INTERACTIVE AI VOICE DEMO / " + scenario.direction.toUpperCase()) + '</span><h1>' + scenario.title + '</h1><p>' + scenario.subtitle + '</p></div><div class="voice-top-actions"><span class="runtime-chip ' + state.runtimeMode + '">' + (isDemo() && state.runtimeMode === 'ready' ? '待接通' : state.runtimeMode.toUpperCase()) + (state.runtimeMode === 'sandbox' ? ' / SIMULATED' : '') + '</span><div class="scenario-tabs" role="tablist" aria-label="语音场景">' + voiceScenarios.map((item) => '<a role="tab" aria-selected="' + (item.id === scenario.id) + '" class="' + (item.id === scenario.id ? 'selected' : '') + '" href="#/apps/voice?scenario=' + item.id + '">' + item.title + '</a>').join('') + '</div></div></div>' + (isDemo() ? mobileNav : '') + '<div class="voice-console"><aside class="voice-context-panel"><div class="panel-title"><span>' + (isDemo() ? '场景' : 'SCENARIO') + '</span><b>' + scenario.direction.toUpperCase() + '</b></div><div class="context-intro"><span class="scenario-icon">' + scenario.title.slice(0, 1) + '</span><div><h2>' + scenario.title + '</h2><p>默认音色：' + esc(scenario.defaultVoice || 'server preset') + '</p></div></div>' + (isDemo() ? settingsButton : '') + '<details class="observe-detail context-detail" data-detail-key="context"><summary>连接与配置</summary><div class="context-meta"><span>会话编号</span><b>' + esc(sessionLabel) + '</b><span>传输</span><b>' + (state.runtimeMode === 'sandbox' ? '本地模拟' : 'LiveKit WebRTC') + '</b><span>合成模型（TTS）</span><b>' + esc(ttsModel) + '</b><span>快模型</span><b>' + esc(fastModel) + '</b><span>核验模型</span><b>' + esc(slowModel) + '</b><span>语音识别（ASR）</span><b>' + esc(asrModel) + '</b><span>音色</span><b>' + esc(displayVoice === 'default' ? isDemo() ? '场景默认' : 'server default' : displayVoice) + '</b></div></details><div class="panel-title workflow-title"><span>' + (isDemo() ? '业务流程' : 'WORKFLOW') + '</span><b>' + state.voiceStep + '/' + scenario.workflow.length + '</b></div><div class="voice-workflow compact">' + steps + '</div>' + (isDemo() ? '' : oldSettings) + detailsLink + '</aside><section class="voice-stage"><div class="stage-top"><div>' + agentAvatar + '<span class="mini-label">通话</span><b>' + (scenario.direction === 'outbound' ? 'Agent 主动来电' : '用户主动拨号') + '</b></div><span class="voice-state ' + state.voiceStatus + '"><i></i>' + chipText + '</span></div><div class="call-session-strip"><span>' + (state.voiceCallStatus === 'idle' ? '待接通' : '实时传输（WebRTC）') + '</span><b>' + (state.voiceCallStatus === 'connected' ? '已接通' : (stages[state.voiceCallStatus] || state.voiceCallStatus)) + '</b>' + sessionReadout + '</div><div class="caller-orb ' + state.voiceCallStatus + ' ' + state.voiceStatus + '"' + (isDemo() ? ' aria-hidden="true">' : '>' + scenario.title.slice(0, 1)) + '</div><div class="call-wave ' + state.voiceStatus + '" data-audio-state="' + state.voiceStatus + '" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>' + liveCaption + '<strong role="status" aria-live="polite">' + callHeadline + '</strong><div class="call-actions" role="group" aria-label="通话控制"><button class="call-action caption-toggle" type="button" data-voice-captions aria-pressed="' + state.voiceSubtitleVisible + '" aria-label="' + (state.voiceSubtitleVisible ? '隐藏字幕' : '显示字幕') + '">' + (state.voiceSubtitleVisible ? '字幕开' : '字幕关') + '</button>' + callButton + muteButton + endButton + (state.runtimeMode !== 'sandbox' ? sandboxControl : '') + '</div><small>' + micStatus + ' · ASR: ' + esc(asrModel) + ' · ' + state.voiceApiState + '</small>' + (state.runtimeMode === 'sandbox' ? sandboxControl : '') + transcriptPanel + '</section>' + observation + '</div></section>' + detailPages);
+  return shell('<section class="voice-screen section-pad" ' + (isDemo() ? 'data-mobile-panel="' + selectedMobilePanel + '" ' : '') + 'data-direction="' + scenario.direction + '"><div class="voice-screen-head"><div><span class="section-label">' + (isDemo() ? (scenario.direction === "outbound" ? "外呼" : "呼入") : "INTERACTIVE AI VOICE DEMO / " + scenario.direction.toUpperCase()) + '</span><h1>' + scenario.title + '</h1><p>' + scenario.subtitle + '</p></div><div class="voice-top-actions"><span class="runtime-chip ' + state.runtimeMode + '">' + (isDemo() && state.runtimeMode === 'ready' ? '待接通' : state.runtimeMode.toUpperCase()) + (state.runtimeMode === 'sandbox' ? ' / SIMULATED' : '') + '</span><div class="scenario-tabs" role="tablist" aria-label="语音场景">' + voiceScenarios.map((item) => '<a role="tab" aria-selected="' + (item.id === scenario.id) + '" class="' + (item.id === scenario.id ? 'selected' : '') + '" href="#/apps/voice?scenario=' + item.id + '">' + item.title + '</a>').join('') + '</div></div></div>' + (isDemo() ? mobileNav : '') + '<div class="voice-console"><aside class="voice-context-panel"><div class="panel-title"><span>' + (isDemo() ? '场景' : 'SCENARIO') + '</span><b>' + scenario.direction.toUpperCase() + '</b></div><div class="context-intro"><span class="scenario-icon ' + esc(avatar.accent) + '"><img src="' + asset(avatar.image) + '" alt=""></span><div><h2>' + scenario.title + '</h2><p>' + esc(avatar.roleCode + ' · ' + avatar.signal) + '</p></div></div>' + (isDemo() ? settingsButton : '') + '<details class="observe-detail context-detail" data-detail-key="context"><summary>连接与配置</summary><div class="context-meta"><span>会话编号</span><b>' + esc(sessionLabel) + '</b><span>传输</span><b>' + (state.runtimeMode === 'sandbox' ? '本地模拟' : 'LiveKit WebRTC') + '</b><span>合成模型（TTS）</span><b>' + esc(ttsModel) + '</b><span>快模型</span><b>' + esc(fastModel) + '</b><span>核验模型</span><b>' + esc(slowModel) + '</b><span>语音识别（ASR）</span><b>' + esc(asrModel) + '</b><span>音色</span><b>' + esc(displayVoice === 'default' ? isDemo() ? '场景默认' : 'server default' : displayVoice) + '</b></div></details><div class="panel-title workflow-title"><span>' + (isDemo() ? '业务流程' : 'WORKFLOW') + '</span><b>' + state.voiceStep + '/' + scenario.workflow.length + '</b></div><div class="voice-workflow compact">' + steps + '</div>' + (isDemo() ? '' : oldSettings) + detailsLink + '</aside><section class="voice-stage"><div class="stage-top"><div>' + agentAvatar + '<span class="mini-label">通话</span><b>' + (scenario.direction === 'outbound' ? 'Agent 主动来电' : '用户主动拨号') + '</b></div><span class="voice-state ' + state.voiceStatus + '"><i></i>' + chipText + '</span></div><div class="call-session-strip"><span>' + (state.voiceCallStatus === 'idle' ? '待接通' : '实时传输（WebRTC）') + '</span><b>' + (state.voiceCallStatus === 'connected' ? '已接通' : (stages[state.voiceCallStatus] || state.voiceCallStatus)) + '</b>' + sessionReadout + '</div><div class="caller-orb ' + state.voiceCallStatus + ' ' + state.voiceStatus + ' ' + esc(avatar.accent) + '"><canvas class="avatar-pulse-canvas" aria-hidden="true"></canvas><div class="avatar-rings" aria-hidden="true"><i></i><i></i><i></i></div><img src="' + asset(avatar.image) + '" alt="' + esc(avatar.alt) + '"><span class="avatar-code">' + esc(avatar.roleCode) + '</span></div><div class="call-wave ' + state.voiceStatus + '" data-audio-state="' + state.voiceStatus + '" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="voice-state-caption"><span>' + esc(avatar.shortRole) + '</span><b>' + esc(avatar.signal) + '</b></div>' + liveCaption + '<strong role="status" aria-live="polite">' + callHeadline + '</strong><div class="call-actions" role="group" aria-label="通话控制"><button class="call-action caption-toggle" type="button" data-voice-captions aria-pressed="' + state.voiceSubtitleVisible + '" aria-label="' + (state.voiceSubtitleVisible ? '隐藏字幕' : '显示字幕') + '">' + (state.voiceSubtitleVisible ? '字幕开' : '字幕关') + '</button>' + callButton + muteButton + endButton + (state.runtimeMode !== 'sandbox' ? sandboxControl : '') + '</div><small>' + micStatus + ' · ASR: ' + esc(asrModel) + ' · ' + state.voiceApiState + '</small>' + (state.runtimeMode === 'sandbox' ? sandboxControl : '') + transcriptPanel + '</section>' + observation + '</div></section>' + detailPages);
 }
 
 function notFoundView() { return shell('<section class="page-intro section-pad"><span class="section-label">页面未找到</span><h1>找不到这个页面</h1><a class="button primary" href="#/">回到首页</a></section>'); }
@@ -1435,6 +1475,7 @@ function render(preserveScroll = false) {
   }
   demoRoute = nextDemo;
   document.body.classList.toggle('voice-demo-route', demoRoute);
+  document.body.classList.toggle('mission-control-route', !demoRoute);
   const previousFocused = isDemo() && preserveScroll && app.contains(document.activeElement)
     ? [...document.activeElement.attributes].find((attr) => attr.name.startsWith('data-voice-') || attr.name === 'data-open-voice-settings')
     : null;
